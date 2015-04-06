@@ -1,0 +1,33 @@
+<ion-view title="Sign-In">
+    <ion-content>
+
+        <form name="sign-in-form" class="row row-center responsive-md">
+            <div class="col-50">
+                <p class="text-center padding">
+                    <img src="../img/mallpoint-login.png" class="img-responsive"/>
+                </p>
+            </div>
+
+            <div class="list col-50">
+                <label class="item item-input">
+                    <span class="input-label">Email</span>
+                    <input type="text" name="email-input" ng-model="user.email" placeholder="">
+                </label>
+                <label class="item item-input">
+                    <span class="input-label">Password</span>
+                    <input type="password" ng-model="user.password" placeholder="">
+                </label>
+
+                <div class="padding">
+                    <button class="button button-block button-assertive" ng-click="signIn(user)">
+                      Log In
+                    </button>
+                </div>
+
+                <p class="text-center">
+                    <a ui-sref="signUp">A link or something like that</a>
+                </p>
+            </div>
+        </form>
+    </ion-content>
+</ion-view>
