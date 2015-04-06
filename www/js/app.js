@@ -7,7 +7,7 @@ angular.module('mallpoint', ['ionic',
                              'mallpoint.controllers',
                              'mallpoint.services'])
 
-.run(function($ionicPlatform, $rootScope) {
+.run(function($ionicPlatform, $ionicLoading, $rootScope) {
   $ionicPlatform.ready(function() {
     // Hide the accessory bar by default (remove this to show the accessory bar above the keyboard
     // for form inputs)
@@ -20,6 +20,7 @@ angular.module('mallpoint', ['ionic',
   });
 
   $rootScope.$on('$stateChangeStart', function(event, toState){
+      $ionicLoading.show({ template: toState.name, noBackdrop: true, duration: 1000 });
       console.log('Entering state: ' + toState.name);
   });
 })
@@ -27,55 +28,57 @@ angular.module('mallpoint', ['ionic',
 .config(function($stateProvider, $urlRouterProvider) {
     $stateProvider
 
-    .state('signin', {
-        url: "/sign-in",
+    .state('login', {
+        url: "/login",
         views: {
             'rootView': {
-                templateUrl: "templates/sign-in.html",
-                controller: 'SignInController'
+                templateUrl: "templates/login.html",
+                controller: 'LoginController'
             }
         }
     })
 
-    .state('signup', {
-        url: "/sign-up",
+    .state('register', {
+        url: "/register",
         views: {
             'rootView': {
-                templateUrl: "templates/sign-up.html",
-                controller: 'SignUpController'
+                templateUrl: "templates/register.html",
+                controller: 'RegisterController'
+            }
+        }
+    })
+
+    .state('app', {
+        abstract: true,
+        url: "/app",
+        views: {
+            'rootView': {
+                templateUrl: "templates/sidemenu.html"
+            }
+        }
+    })
+
+    .state('app.geolocation', {
+        url: "/geolocation",
+        views: {
+            'menuContent': {
+                templateUrl: "templates/geolocation.html",
+                controller: 'GeolocationController'
+            }
+        }
+    })
+
+    .state('app.map', {
+        url: "/map",
+        views: {
+            'menuContent': {
+                templateUrl: "templates/map.html",
+                controller: 'MapController'
             }
         }
     });
-    //
-    // .state('app', {
-    //     abstract: true,
-    //     url: "/app",
-    //     views: {
-    //         'rootView': {
-    //             templateUrl: "templates/sidemenu.html"
-    //         }
-    //     }
-    // })
-    //
-    // .state('app.geolocation', {
-    //     url: "/geolocation",
-    //     views: {
-    //         'menuContent': {
-    //             templateUrl: "templates/geolocation.html",
-    //             controller: 'GeolocationController'
-    //         }
-    //     }
-    // })
-    //
-    // .state('app.map', {
-    //     url: "/map",
-    //     views: {
-    //         'menuContent': {
-    //             templateUrl: "templates/map.html",
-    //             controller: 'MapController'
-    //         }
-    //     }
-    // })
+
+
     //
     // .state('app.tabs', {
     //     url: "/tabs",
@@ -108,5 +111,5 @@ angular.module('mallpoint', ['ionic',
 
 
 
-    $urlRouterProvider.otherwise('/sign-in');
+    $urlRouterProvider.otherwise('/login');
 });

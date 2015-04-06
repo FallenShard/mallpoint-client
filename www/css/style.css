@@ -1,4 +1,19 @@
 /* Empty. Add your own CSS if you like */
+@font-face {
+    font-family: 'UbuntuTitling';
+    src: url('../fonts/UbuntuTitling-Bold.woff') format('woff'),
+         url('../fonts/UbuntuTitling-Bold.tff') format('tff'),
+         url('../fonts/UbuntuTitling-Bold.otf') format('otf');
+    font-weight: normal;
+    font-style: normal;
+}
+
+.theme-font {
+    font-family: 'UbuntuTitling';
+    font-size: 1.6em;
+    font-weight: bold;
+}
+
 .scroll {
     height: 100%;
 }
@@ -11,4 +26,22 @@
 .img-responsive {
     width: 50%;
     height: auto;
+}
+
+.side-menu-action {
+    background-color: transparent;
+    border: 0px;
+}
+
+.side-menu-heading {
+    background-color: #CC3300;
+    border: 0px;
+    color: white;
+    font-family: 'UbuntuTitling';
+    font-size: 1.6em;
+    font-weight: bold;
+}
+
+.theme-color {
+    color : #CC3300;
 }

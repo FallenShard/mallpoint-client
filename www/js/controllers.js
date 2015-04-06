@@ -1,5 +1,49 @@
 angular.module('mallpoint.controllers', ['ionic'])
 
+.controller('LoginController', function($scope, $state, $ionicLoading, LocalStorage) {
+
+    LocalStorage.clear();
+    var passHash = LocalStorage.get('passwordHash', '');
+
+    if (passHash === '')
+        console.log("No user data here");
+    else
+    {
+        console.log("Logging in our user...");
+        $ionicLoading.show({ template: 'User logged in!', noBackdrop: true, duration: 2000 });
+    }
+
+
+    $scope.login = function (user) {
+        console.log(user);
+        if (user && user.email === "admin" && user.password === "admin")
+        {
+            $ionicLoading.show({ template: 'User logged in!', noBackdrop: true, duration: 2000 });
+            LocalStorage.set('passwordHash', user.password);
+            $state.go('app.geolocation');
+        }
+        else
+            $ionicLoading.show({ template: 'Incorrect password and/or email!', noBackdrop: true, duration: 2000});
+    }
+})
+
+.controller('RegisterController', function($scope, $ionicLoading) {
+    $scope.register = function(newUser) {
+        if (newUser)
+        {
+            if (newUser.password === newUser.repeatPassword)
+            {
+                // attempt register
+                $ionicLoading.show({ template: JSON.stringify(newUser), noBackdrop: true, duration: 2000 });
+            }
+            else
+            {
+                $ionicLoading.show({ template: "Passwords must match!", noBackdrop: true, duration: 2000 });
+            }
+        }
+    }
+})
+
 .controller('GeolocationController', function($scope, Geolocation) {
 
     console.log("Entering GeoLocationController!");
@@ -62,40 +106,6 @@ angular.module('mallpoint.controllers', ['ionic'])
     //});
 })
 
-.controller('SignInController', function($scope, $state, $ionicLoading, LocalStorage) {
-
-    LocalStorage.clear();
-    var passHash = LocalStorage.get('passwordHash', '');
-
-    if (passHash === '')
-        console.log("No user data here");
-    else
-    {
-        console.log("Logging in our user...");
-        $ionicLoading.show({ template: 'User logged in!', noBackdrop: true, duration: 2000 });
-    }
 
 
-    $scope.signIn = function (user) {
-        console.log(user);
-        if (user && user.email === "admin" && user.password === "admin")
-        {
-            $ionicLoading.show({ template: 'User logged in!', noBackdrop: true, duration: 2000 });
-            LocalStorage.set('passwordHash', user.password);
-        }
-        else
-            $ionicLoading.show({ template: 'Incorrect password!', noBackdrop: true, duration: 2000});
-
-        // var email = user.email;
-        // var password = user.password;
-        //
-        // if (email === "admin@admin.com" && password === "12345")
-        //     $state.go('app.geolocation');
-        //
-        // console.log(email + " " + password);
-    }
-})
-
-.controller('SignUpController', function($scope) {
-
-});
+;

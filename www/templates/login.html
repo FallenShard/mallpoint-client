@@ -1,7 +1,8 @@
-<ion-view title="Sign-In">
+<ion-view title="Login">
     <ion-content>
 
-        <form name="sign-in-form" class="row row-center responsive-md">
+        <form name="loginForm" novalidate ng-submit="login(user)"
+        class="row row-center responsive-md">
             <div class="col-50">
                 <p class="text-center padding">
                     <img src="../img/mallpoint-login.png" class="img-responsive"/>
@@ -9,25 +10,28 @@
             </div>
 
             <div class="list col-50">
+
                 <label class="item item-input">
                     <span class="input-label">Email</span>
-                    <input type="text" name="email-input" ng-model="user.email" placeholder="">
+                    <input type="text" required ng-model="user.email" placeholder="Your email">
                 </label>
+
                 <label class="item item-input">
                     <span class="input-label">Password</span>
-                    <input type="password" ng-model="user.password" placeholder="">
+                    <input type="password" required ng-model="user.password" placeholder="Your password">
                 </label>
 
                 <div class="padding">
-                    <button class="button button-block button-assertive" ng-click="signIn(user)">
+                    <button type="submit" class="button button-block button-balanced"
+                            ng-disabled="!loginForm.$valid">
                       Log In
                     </button>
+                    <button class="button button-block button-assertive" ui-sref="register">
+                      Register
+                    </button>
                 </div>
-
-                <p class="text-center">
-                    <a ui-sref="signUp">A link or something like that</a>
-                </p>
             </div>
+
         </form>
     </ion-content>
 </ion-view>
