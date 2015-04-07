@@ -35,8 +35,8 @@
 
 .side-menu-heading {
     background-color: #CC3300;
-    border: 0px;
-    color: white;
+    border: 1px;
+    color: #CCCCCC;
     font-family: 'UbuntuTitling';
     font-size: 1.6em;
     font-weight: bold;
@@ -44,4 +44,11 @@
 
 .theme-color {
     color : #CC3300;
+}
+
+.error-block {
+    border-radius: 3px;
+    border: 2px solid #CC3300;
+    color: #CC3300;
+    text-align: center;
 }

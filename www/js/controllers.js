@@ -1,33 +1,49 @@
 angular.module('mallpoint.controllers', ['ionic'])
 
-.controller('LoginController', function($scope, $state, $ionicLoading, LocalStorage) {
+.controller('LoginController', function($rootScope, $scope, $state, $ionicPopup, LocalStorage, Authentication) {
 
-    LocalStorage.clear();
-    var passHash = LocalStorage.get('passwordHash', '');
+    var loginSuccess = function(data, status, headers, config) {
+        // Store this for autologin on next start-ups
+        var creds = {};
+        creds.email = data.email;
+        creds.passwordHash = data.passwordHash;
+        LocalStorage.setObject('credentials', creds);
 
-    if (passHash === '')
-        console.log("No user data here");
-    else
+        // Make sure we can access the user from next states
+        $rootScope.activeUser = data;
+
+        $state.go('app.map');
+    };
+
+    var loginError = function(data, status, headers, config) {
+        console.log("Login failed :(" + status);
+        console.log(data);
+
+        $scope.showLoginError = true;
+    };
+
+    var cred = LocalStorage.getObject('credentials');
+
+    // Check if the object is not empty and attempt auto-login
+    if (Object.keys(cred).length > 0)
     {
-        console.log("Logging in our user...");
-        $ionicLoading.show({ template: 'User logged in!', noBackdrop: true, duration: 2000 });
-    }
+        console.log(cred);
 
+        Authentication.autologin(cred).
+        success(loginSuccess).
+        error(loginError);
+    }
 
     $scope.login = function (user) {
         console.log(user);
-        if (user && user.email === "admin" && user.password === "admin")
-        {
-            $ionicLoading.show({ template: 'User logged in!', noBackdrop: true, duration: 2000 });
-            LocalStorage.set('passwordHash', user.password);
-            $state.go('app.geolocation');
-        }
-        else
-            $ionicLoading.show({ template: 'Incorrect password and/or email!', noBackdrop: true, duration: 2000});
-    }
+
+        Authentication.login(user).
+        success(loginSuccess).
+        error(loginError);
+    };
 })
 
-.controller('RegisterController', function($scope, $ionicLoading) {
+.controller('RegisterController', function($state, $scope, $ionicLoading) {
     $scope.register = function(newUser) {
         if (newUser)
         {
@@ -44,9 +60,9 @@ angular.module('mallpoint.controllers', ['ionic'])
     }
 })
 
-.controller('GeolocationController', function($scope, Geolocation) {
+.controller('DebugController', function($scope, Geolocation) {
 
-    console.log("Entering GeoLocationController!");
+    console.log("Entering DebugController!");
     $scope.coords = {};
     $scope.coords.lat = -1;
     $scope.coords.long = -1;
@@ -106,6 +122,11 @@ angular.module('mallpoint.controllers', ['ionic'])
     //});
 })
 
+.controller('LogoutController', function($scope, LocalStorage) {
+    LocalStorage.clear();
+    console.log("storage cleared!");
+    $state.go('login');
+})
 
 
 ;

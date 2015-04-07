@@ -5,7 +5,7 @@
         class="row row-center responsive-md">
             <div class="col-50">
                 <p class="text-center padding">
-                    <img src="../img/mallpoint-login.png" class="img-responsive"/>
+                    <img src="img/mallpoint-login.png" class="img-responsive"/>
                 </p>
             </div>
 
@@ -22,6 +22,7 @@
                 </label>
 
                 <div class="padding">
+                    <div ng-show="showLoginError" class="error-block"><i class="icon ion-alert-circled"></i>Invalid email and/or password!</div>
                     <button type="submit" class="button button-block button-balanced"
                             ng-disabled="!loginForm.$valid">
                       Log In

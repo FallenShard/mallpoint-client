@@ -1,4 +1,5 @@
-angular.module('mallpoint.services', ['ngResource'])
+angular.module('mallpoint.services', ['ngResource',
+                                      'mallpoint.constants'])
 
 // Geolocation service
 .factory('Geolocation', function($q) {
@@ -37,5 +38,18 @@ angular.module('mallpoint.services', ['ngResource'])
         clear: function() {
             $window.localStorage.clear();
         }
-  }
+    };
+})
+
+.factory('Authentication', function($http, ServerConfig) {
+    return {
+        login: function(credentials) {
+            console.log("Sending: " + credentials);
+            return $http.post(ServerConfig.baseRoute() + "/login", credentials);
+        },
+        autologin: function(credentials) {
+            console.log("Sending: " + credentials);
+            return $http.post(ServerConfig.baseRoute() + "/autologin", credentials);
+        }
+    };
 });

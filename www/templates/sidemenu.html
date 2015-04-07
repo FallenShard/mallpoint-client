@@ -1,7 +1,7 @@
 <ion-side-menus enable-menu-with-back-views="false">
     <ion-side-menu side="right">
         <ion-header-bar class="bar-stable bar-assertive">
-            <h1 class="title theme-font">mallpoint</h1>
+            <h1 class="title theme-font">{{activeUser.username}}</h1>
         </ion-header-bar>
 
         <ion-content>
@@ -9,16 +9,25 @@
                 <ion-item class="side-menu-heading">
                     ACTIVITY
                 </ion-item>
-                <ion-item nav-clear menu-close href="#/app/geolocation">
-                    Geo Location
+                <ion-item nav-clear menu-close href="#/app/debug">
+                    Debug
                 </ion-item>
                 <ion-item class="item-icon-left" nav-clear menu-close href="#/app/map">
                     <i class="icon ion-map theme-color"></i>Map
                 </ion-item>
+                <ion-item class="item-icon-left" nav-clear menu-close >
+                    <i class="icon ion-android-favorite-outline theme-color"></i>Favorites
+                </ion-item>
+                <ion-item class="item-icon-left" nav-clear menu-close >
+                    <i class="icon ion-ios-world-outline theme-color"></i>Notifications
+                </ion-item>
+                <ion-item class="item-icon-left" nav-clear menu-close >
+                    <i class="icon ion-android-options theme-color"></i>Settings
+                </ion-item>
                 <ion-item class="side-menu-heading">
                     ACCOUNT
                 </ion-item>
-                <ion-item class="item-icon-left side-menu-action" nav-clear menu-close href="#/login">
+                <ion-item class="item-icon-left side-menu-action" nav-clear menu-close href="#/app/logout">
                     <i class="icon ion-log-out theme-color"></i>Log Out
                 </ion-item>
             </ion-list>

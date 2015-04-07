@@ -5,7 +5,8 @@
 // the 2nd parameter is an array of 'requires'
 angular.module('mallpoint', ['ionic',
                              'mallpoint.controllers',
-                             'mallpoint.services'])
+                             'mallpoint.services',
+                             'mallpoint.constants'])
 
 .run(function($ionicPlatform, $ionicLoading, $rootScope) {
   $ionicPlatform.ready(function() {
@@ -25,7 +26,9 @@ angular.module('mallpoint', ['ionic',
   });
 })
 
-.config(function($stateProvider, $urlRouterProvider) {
+.config(function($stateProvider, $urlRouterProvider, $compileProvider) {
+    //$compileProvider.imgSrcSanitizationWhitelist(/^\s(https|file|blob|cdvfile):|data:image\//);
+
     $stateProvider
 
     .state('login', {
@@ -58,12 +61,12 @@ angular.module('mallpoint', ['ionic',
         }
     })
 
-    .state('app.geolocation', {
-        url: "/geolocation",
+    .state('app.debug', {
+        url: "/debug",
         views: {
             'menuContent': {
-                templateUrl: "templates/geolocation.html",
-                controller: 'GeolocationController'
+                templateUrl: "templates/debug.html",
+                controller: 'DebugController'
             }
         }
     })
@@ -76,7 +79,17 @@ angular.module('mallpoint', ['ionic',
                 controller: 'MapController'
             }
         }
-    });
+    })
+
+    .state('app.logout', {
+        url: "/logout",
+        views: {
+            'menuContent': {
+                controller: 'LogoutController'
+            }
+        }
+    })
+    ;
 
 
     //
