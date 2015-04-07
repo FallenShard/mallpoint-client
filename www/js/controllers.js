@@ -122,7 +122,7 @@ angular.module('mallpoint.controllers', ['ionic'])
     //});
 })
 
-.controller('LogoutController', function($scope, LocalStorage) {
+.controller('LogoutController', function($state, LocalStorage) {
     LocalStorage.clear();
     console.log("storage cleared!");
     $state.go('login');
