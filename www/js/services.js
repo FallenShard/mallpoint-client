@@ -1,10 +1,22 @@
-angular.module('mallpoint.services', ['ngResource',
-                                      'mallpoint.constants'])
+angular.module('mallpoint.services', ['ngResource'])
 
 // Geolocation service
 .factory('Geolocation', function($q) {
     return {
         getCurrentPosition: function(params) {
+            var deferred = $q.defer();
+            navigator.geolocation.getCurrentPosition(
+                function(result) {
+                    deferred.resolve(result);
+                },
+                function(error) {
+                    deferred.reject(error);
+                },
+                params);
+
+            return deferred.promise;
+        },
+        watchPosition: function(params) {
             var deferred = $q.defer();
             navigator.geolocation.getCurrentPosition(
                 function(result) {
@@ -44,12 +56,22 @@ angular.module('mallpoint.services', ['ngResource',
 .factory('Authentication', function($http, ServerConfig) {
     return {
         login: function(credentials) {
-            console.log("Sending: " + credentials);
             return $http.post(ServerConfig.baseRoute() + "/login", credentials);
         },
         autologin: function(credentials) {
-            console.log("Sending: " + credentials);
             return $http.post(ServerConfig.baseRoute() + "/autologin", credentials);
         }
     };
+})
+
+.factory('Mallpoints', function($http, ServerConfig) {
+    return {
+        getAll: function() {
+            return $http.get(ServerConfig.baseRoute() + "/mallpoints");
+        },
+        save: function(mallpoint, user) {
+            mallpoint.userId = user._id;
+            return $http.post(ServerConfig.baseRoute() + "/savemp", mallpoint);
+        }
+    }
 });
