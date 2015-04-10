@@ -60,6 +60,9 @@ angular.module('mallpoint.services', ['ngResource'])
         },
         autologin: function(credentials) {
             return $http.post(ServerConfig.baseRoute() + "/autologin", credentials);
+        },
+        register: function(userData) {
+            return $http.post(ServerConfig.baseRoute() + "/register", userData);
         }
     };
 })
@@ -71,7 +74,46 @@ angular.module('mallpoint.services', ['ngResource'])
         },
         save: function(mallpoint, user) {
             mallpoint.userId = user._id;
-            return $http.post(ServerConfig.baseRoute() + "/savemp", mallpoint);
+            return $http.post(ServerConfig.baseRoute() + "/mallpointcreate", mallpoint);
         }
     }
-});
+})
+
+.factory('GoogleMaps', function($timeout) {
+
+    var longTap = {};
+
+    var longTapCancel = function() {
+        if (angular.isUndefined(longTap.promise))
+            return;
+
+        $timeout.cancel(longTap.promise);
+        delete longTap.promise;
+    };
+
+    return {
+        addLongTapListener: function(elem, callback) {
+            google.maps.event.addListener(elem, "mousedown", function(event) {
+                console.log("onGoogleMapsMouseDown()");
+
+                if (angular.isUndefined(longTap.promise)) {
+                    longTap.promise = $timeout(function () { callback(event.latLng); }, 1000);
+                }
+            });
+
+            google.maps.event.addListener(elem, "mouseup", function() {
+        	    console.log("onGoogleMapsMouseUp()");
+
+                longTapCancel();
+        	});
+
+        	google.maps.event.addListener(elem, "dragstart", function () {
+        	    console.log("onGoogleMapsDragStart()");
+
+                longTapCancel();
+            });
+        }
+    }
+})
+
+;

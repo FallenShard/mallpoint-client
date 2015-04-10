@@ -2,7 +2,7 @@ angular.module('mallpoint.constants', [])
 
 // Server configuration
 .constant('ServerConfig', {
-    ip: '192.168.0.17',
+    ip: '192.168.0.12',
     port: '5000',
     baseUrl: '/api',
     baseRoute: function() {

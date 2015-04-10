@@ -91,38 +91,5 @@ angular.module('mallpoint', ['ionic',
     })
     ;
 
-
-    //
-    // .state('app.tabs', {
-    //     url: "/tabs",
-    //     views: {
-    //         'menuContent': {
-    //             templateUrl: "templates/tabs.html",
-    //         }
-    //     }
-    // })
-    //
-    // .state('app.tabs.dash', {
-    //     url: "/dash",
-    //     views: {
-    //         'tab-dash': {
-    //             templateUrl: "templates/tab-dash.html"
-    //
-    //         }
-    //     }
-    //
-    // })
-    //
-    // .state('app.tabs.account', {
-    //     url: "/account",
-    //     views: {
-    //         'tab-account': {
-    //             templateUrl: "templates/tab-account.html"
-    //         }
-    //     }
-    // });
-
-
-
     $urlRouterProvider.otherwise('/login');
 });
