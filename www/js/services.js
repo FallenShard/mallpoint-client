@@ -79,7 +79,7 @@ angular.module('mallpoint.services', ['ngResource'])
     }
 })
 
-.factory('GoogleMaps', function($timeout) {
+.factory('MapService', function($timeout, Mallpoints) {
 
     var longTap = {};
 
@@ -91,13 +91,64 @@ angular.module('mallpoint.services', ['ngResource'])
         delete longTap.promise;
     };
 
+    var createShopMarker = function(params) {
+        var canvas, context;
+
+        var width = params.width || 25;
+        var height = params.height || 25;
+        var
+
+        canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        //
+        context = canvas.getContext("2d");
+        //
+        context.clearRect(0,0,width,height);
+
+        // background is yellow
+        context.fillStyle = "white";
+        //
+        // border is black
+        context.strokeStyle = color;
+
+        context.shadowBlur = 2;
+        context.shadowColor = color;
+        context.beginPath();
+        context.moveTo(radius + 2, 2);
+        context.lineTo(width - radius - 2, 2);
+        context.quadraticCurveTo(width - 2, 2, width - 2, radius + 2);
+        context.lineTo(width - 2, height - radius - 2);
+        context.quadraticCurveTo(width - 2, height - 2, width - radius - 2, height - 2);
+        context.lineTo(radius + 2, height - 2);
+        context.quadraticCurveTo(2, height - 2, 2, height - radius - 2);
+        context.lineTo(2, radius - 2);
+        context.quadraticCurveTo(2, 2, radius + 2, 2);
+        context.closePath();
+
+
+
+        context.fill();
+        context.stroke();
+
+        context.fillStyle = color;
+        context.font="12px UbuntuTitling";
+        context.fillText("mp", 4, 15);
+        //
+        return canvas.toDataURL();
+    };
+
     return {
         addLongTapListener: function(elem, callback) {
             google.maps.event.addListener(elem, "mousedown", function(event) {
                 console.log("onGoogleMapsMouseDown()");
 
                 if (angular.isUndefined(longTap.promise)) {
-                    longTap.promise = $timeout(function () { callback(event.latLng); }, 1000);
+                    longTap.promise = $timeout(function () {
+                        callback(event);
+
+                        delete longTap.promise;
+                        }, 1000);
                 }
             });
 
@@ -112,6 +163,71 @@ angular.module('mallpoint.services', ['ngResource'])
 
                 longTapCancel();
             });
+        },
+        createMarker: function(type, params) {
+            switch(type) {
+                case 'shop':
+                    return createShopMarker(params);
+                    break;
+
+                case 'mall':
+                    return createMallMarker(params);
+                    break;
+
+                default:
+                    params.width = 25;
+                    params.height = 25;
+                    params.radius = 4;
+                    params.color = "black";
+                    return createShopMarker(params);
+            }
+        }
+
+    }
+})
+
+.factory('MarkerFactory', function($window) {
+
+    return {
+        createMarker: function(width, height, radius, color) {
+            var canvas, context;
+
+            canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+            //
+            context = canvas.getContext("2d");
+            //
+            context.clearRect(0,0,width,height);
+
+            // background is yellow
+            context.fillStyle = "white";
+            //
+            // border is black
+            context.strokeStyle = color;
+
+            context.shadowBlur = 2;
+            context.shadowColor = color;
+            context.beginPath();
+            context.moveTo(radius + 2, 2);
+            context.lineTo(width - radius - 2, 2);
+            context.quadraticCurveTo(width - 2, 2, width - 2, radius + 2);
+            context.lineTo(width - 2, height - radius - 2);
+            context.quadraticCurveTo(width - 2, height - 2, width - radius - 2, height - 2);
+            context.lineTo(radius + 2, height - 2);
+            context.quadraticCurveTo(2, height - 2, 2, height - radius - 2);
+            context.lineTo(2, radius - 2);
+            context.quadraticCurveTo(2, 2, radius + 2, 2);
+            context.closePath();
+
+            context.fill();
+            context.stroke();
+
+            context.fillStyle = color;
+            context.font="12px UbuntuTitling";
+            context.fillText("mp", 4, 15);
+            //
+            return canvas.toDataURL();
         }
     }
 })
