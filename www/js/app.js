@@ -81,6 +81,26 @@ angular.module('mallpoint', ['ionic',
         }
     })
 
+    .state('app.my-mallpoints', {
+        url: "/myMallpoints",
+        views: {
+            'menuContent': {
+                templateUrl: "templates/my-mallpoints.html",
+                controller: 'MyMallpointsController'
+            }
+        }
+    })
+
+    .state('app.favorites', {
+        url: "/favorites",
+        views: {
+            'menuContent': {
+                templateUrl: "templates/favorites.html",
+                controller: 'FavoritesController'
+            }
+        }
+    })
+
     .state('app.logout', {
         url: "/logout",
         views: {
@@ -88,8 +108,7 @@ angular.module('mallpoint', ['ionic',
                 controller: 'LogoutController'
             }
         }
-    })
-    ;
+    });
 
     $urlRouterProvider.otherwise('/login');
 });

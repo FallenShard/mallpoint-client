@@ -145,11 +145,17 @@ angular.module('mallpoint.controllers', ['ionic'])
     };
 
     $scope.map = new google.maps.Map(document.getElementById("map"), mapOptions);
+    $scope.userMarker = new google.maps.Marker({
+        map: $scope.map,
+        title: "My location!",
+        zIndex: 999
+    });
 
     Mallpoints.getAll().
     success(function(data, status, headers, config) {
 
-        var icon = MarkerFactory.createMarker(25, 25, 4, "#0000FF");
+        var icon = MapService.createMarker('shop');
+        var mallIcon = MapService.createMarker('mall');
 
         $rootScope.mallpoints = [];
         for (var i = 0; i < data.length; i++) {
@@ -160,7 +166,7 @@ angular.module('mallpoint.controllers', ['ionic'])
                 position: new google.maps.LatLng(data[i].latitude, data[i].longitude),
                 animation: google.maps.Animation.DROP,
                 map: $scope.map,
-                icon: icon,
+                icon: data[i].type === 'Shop' ? icon : mallIcon,
                 title: data[i].title
             });
 
@@ -182,95 +188,11 @@ angular.module('mallpoint.controllers', ['ionic'])
             buttonClicked: function(index) {
                 switch(index) {
                     case 0: {
-                        $scope.mpData = {};
-                        $scope.mpData.type = 'Shop';
-                        var mpPopup = $ionicPopup.show({
-                            templateUrl: 'templates/mallpoint-popup.html',
-                            title: 'Confirm New Mallpoint',
-                            scope: $scope,
-                            buttons: [{
-                                    text: 'OK',
-                                    type: 'button-assertive',
-                                    onTap: function(e) {
-                                        if (!$scope.mpData.name) {
-                                            e.preventDefault();
-                                        }
-                                        else {
-                                            var mallpoint = {};
-                                            mallpoint.latitude = $rootScope.activeUserLatLng.lat();
-                                            mallpoint.longitude = $rootScope.activeUserLatLng.lng();
-                                            mallpoint.name = $scope.mpData.name;
-                                            mallpoint.type = $scope.mpData.type;
-                                            Mallpoints.save(mallpoint, $rootScope.activeUser).
-                                            success(function() {
-                                                var marker = new google.maps.Marker({
-                                                    position: new google.maps.LatLng(mallpoint.latitude, mallpoint.longitude),
-                                                    animation: google.maps.Animation.DROP,
-                                                    map: $scope.map,
-                                                    title: mallpoint.name
-                                                });
-                                                var mpModelView = {};
-                                                mpModelView.model = mallpoint;
-                                                mpModelView.view = marker;
-                                                $rootScope.mallpoints.push(mpModelView);
-                                            })
-                                        }
-                                    }
-                                },
-                                {
-                                    text: 'Cancel',
-                                    type: 'button-assertive button-clear',
-                                    onTap: function(e) {
-
-                                    }
-                                }]
-                          });
+                        Mallpoints.showConfirmPopup($rootScope, $scope, $rootScope.activeUserLatLng);
                         break;
                     }
                     case 1: {
-                        $scope.mpData = {};
-                        $scope.mpData.type = 'Shop';
-                        var mpPopup = $ionicPopup.show({
-                            templateUrl: 'templates/mallpoint-popup.html',
-                            title: 'Confirm New Mallpoint',
-                            scope: $scope,
-                            buttons: [{
-                                    text: 'OK',
-                                    type: 'button-assertive',
-                                    onTap: function(e) {
-                                        if (!$scope.mpData.name) {
-                                            e.preventDefault();
-                                        }
-                                        else {
-                                            var mallpoint = {};
-                                            mallpoint.latitude = event.latLng.lat();
-                                            mallpoint.longitude = event.latLng.lng();
-                                            mallpoint.name = $scope.mpData.name;
-                                            mallpoint.type = $scope.mpData.type;
-                                            Mallpoints.save(mallpoint, $rootScope.activeUser).
-                                            success(function() {
-                                                var marker = new google.maps.Marker({
-                                                    position: new google.maps.LatLng(mallpoint.latitude, mallpoint.longitude),
-                                                    animation: google.maps.Animation.DROP,
-                                                    map: $scope.map,
-                                                    title: mallpoint.name
-                                                });
-                                                var mpModelView = {};
-                                                mpModelView.model = mallpoint;
-                                                mpModelView.view = marker;
-                                                $rootScope.mallpoints.push(mpModelView);
-                                            })
-                                        }
-                                    }
-                                },
-                                {
-                                    text: 'Cancel',
-                                    type: 'button-assertive button-clear',
-                                    onTap: function(e) {
-
-                                    }
-                                }]
-                          });
+                        Mallpoints.showConfirmPopup($rootScope, $scope, event.latLng);
                         break;
                     }
                 }
@@ -287,17 +209,7 @@ angular.module('mallpoint.controllers', ['ionic'])
         var latLng = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
         $rootScope.activeUserLatLng = latLng;
 
-        if (!$scope.myMarker) {
-            $scope.myMarker = new google.maps.Marker({
-                position: latLng,
-                map: $scope.map,
-                title: "My location!"
-            });
-        }
-        else {
-            $scope.myMarker.setPosition(latLng);
-        }
-
+        $scope.userMarker.setPosition(latLng);
         $scope.map.setCenter(latLng);
     };
 
@@ -314,5 +226,18 @@ angular.module('mallpoint.controllers', ['ionic'])
     $state.go('login');
 })
 
+.controller('MyMallpointsController', function($rootScope, $scope, Mallpoints) {
+    Mallpoints.getAllFromUser($rootScope.activeUser).
+    success(function(data) {
+        $scope.mallpoints = data;
+    }).
+    error(function(data) {
+        console.log("not nice");
+    });
+})
+
+.controller('FavoritesController', function($scope) {
+
+})
 
 ;
