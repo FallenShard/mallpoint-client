@@ -1,7 +1,14 @@
 <div>
     <span class="input-label">Name</span>
-    <input type="text" id="mpDataName" ng-model="mpData.name" >
+    <input type="text" ng-model="mpData.name">
+
     <span class="input-label">Type</span>
-    <ion-radio ng-model="mpData.type" ng-value="'Shop'">Shop</ion-radio>
-    <ion-radio ng-model="mpData.type" ng-value="'Mall'">Mall</ion-radio>
+    <input type="text" ng-model="mpData.type" placeholder="e.g. Clothing or PC Hardware">
+
+    <span class="input-label">Tags</span>
+    <input type="text" ng-model="mpData.tags" placeholder="Add tags separated by a comma">
+
+    <span class="input-label">Size</span>
+    <ion-radio ng-model="mpData.size" ng-value="'Shop'">Shop</ion-radio>
+    <ion-radio ng-model="mpData.size" ng-value="'Mall'">Mall</ion-radio>
 </div>

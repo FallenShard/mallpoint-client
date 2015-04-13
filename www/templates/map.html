@@ -1,5 +1,33 @@
-<ion-view title="Google Map">
+<ion-view title="Mallpoints">
+    <!-- <search-bar ng-model="search"></search-bar> -->
+    <!-- <ion-nav-bar class="bar-stable bar-assertive">
+
+        <ion-nav-back-button>
+        </ion-nav-back-button>
+
+        <ion-nav-buttons side="left">
+            <button menu-toggle="left" class="button button-icon icon ion-navicon">
+            </button>
+
+        </ion-nav-buttons>
+
+    </ion-nav-bar> -->
+    <ion-nav-buttons side="right">
+        <button class="button button-icon icon ion-search" ng-click="search()">
+        </button>
+    </ion-nav-buttons>
+
+
+    <search-bar></search-bar>
+
     <ion-content class="has-header" data-tap-disabled="true">
         <div id="map" data-tap-disabled="true"></div>
     </ion-content>
+    <ion-footer-bar class="bar-assertive">
+        <div class="button-bar">
+            <button class="button button-clear" ng-click="takePicture()"><i class="icon ion-search"></i></button>
+            <img id="myTestImage" src="./img/ionic.png"></img>
+            <button id="debug" class="button button-clear">Debugging</button>
+        </div>
+    </ion-footer-bar>
 </ion-view>

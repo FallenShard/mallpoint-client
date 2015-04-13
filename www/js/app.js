@@ -6,6 +6,7 @@
 angular.module('mallpoint', ['ionic',
                              'mallpoint.controllers',
                              'mallpoint.services',
+                             'mallpoint.directives',
                              'mallpoint.constants'])
 
 .run(function($ionicPlatform, $ionicLoading, $rootScope) {
@@ -27,7 +28,7 @@ angular.module('mallpoint', ['ionic',
 })
 
 .config(function($stateProvider, $urlRouterProvider, $compileProvider) {
-    //$compileProvider.imgSrcSanitizationWhitelist(/^\s(https|file|blob|cdvfile):|data:image\//);
+    $compileProvider.imgSrcSanitizationWhitelist(/^\s*(https?|ftp|mailto|file|tel):/);
 
     $stateProvider
 
@@ -81,8 +82,8 @@ angular.module('mallpoint', ['ionic',
         }
     })
 
-    .state('app.my-mallpoints', {
-        url: "/myMallpoints",
+    .state('app.mymallpoints', {
+        url: "/mymallpoints",
         views: {
             'menuContent': {
                 templateUrl: "templates/my-mallpoints.html",

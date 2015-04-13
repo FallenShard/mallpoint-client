@@ -1,9 +1,9 @@
-<ion-view title="Favorites">
+<ion-view title="My Mallpoints">
     <ion-content>
         <ion-item collection-repeat="mallpoint in mallpoints">
             <div class="card">
                 <div class="item item-divider">
-                    I'm a Header in a Card!
+                    {{mallpoint.name}}
                 </div>
                 <div class="item item-text-wrap">
                     {{mallpoint.name}}

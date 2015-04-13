@@ -53,6 +53,25 @@ angular.module('mallpoint.services', ['ngResource'])
     };
 })
 
+// Camera service
+.factory('Camera', function($q) {
+    return {
+        takePicture: function(params) {
+            var deferred = $q.defer();
+            navigator.camera.getPicture(
+                function(result) {
+                    deferred.resolve(result);
+                },
+                function(error) {
+                    deferred.reject(error);
+                },
+                params);
+
+            return deferred.promise;
+        }
+    }
+})
+
 .factory('Authentication', function($http, ServerConfig) {
     return {
         login: function(credentials) {
@@ -67,7 +86,7 @@ angular.module('mallpoint.services', ['ngResource'])
     };
 })
 
-.factory('Mallpoints', function($http, $ionicPopup, ServerConfig) {
+.factory('Mallpoints', function($http, $ionicPopup, ServerConfig, MapService) {
 
     var save = function(mallpoint, user) {
         mallpoint.userId = user._id;
@@ -81,9 +100,15 @@ angular.module('mallpoint.services', ['ngResource'])
         getAllFromUser: function(user) {
             return $http.post(ServerConfig.baseRoute() + "/mallpoints/user", user);
         },
+        tagSearch: function(filter) {
+            return $http.post(ServerConfig.baseRoute() + "/mallpoints/search", filter);
+        },
+        uploadPhoto: function(data) {
+            return $http.post(ServerConfig.baseRoute() + "/mallpoints/photo", data);
+        },
         showConfirmPopup: function($rootScope, $scope, latLng) {
             $scope.mpData = {};
-            $scope.mpData.type = 'Shop';
+            $scope.mpData.size = 'Shop';
             $ionicPopup.show({
                 templateUrl: 'templates/mallpoint-popup.html',
                 title: 'Confirm New Mallpoint',
@@ -92,28 +117,35 @@ angular.module('mallpoint.services', ['ngResource'])
                     text: 'OK',
                     type: 'button-assertive',
                     onTap: function(e) {
-                        if (!$scope.mpData.name) {
+                        if (!$scope.mpData.name ||
+                            !$scope.mpData.type) {
                             e.preventDefault();
                         }
                         else {
                             var mallpoint = {};
-                            mallpoint.latitude = latLng.lat();
-                            mallpoint.longitude = latLng.lng();
+                            mallpoint.latitude = latLng.lat;
+                            mallpoint.longitude = latLng.lng;
                             mallpoint.name = $scope.mpData.name;
                             mallpoint.type = $scope.mpData.type;
+                            mallpoint.tags = $scope.mpData.tags.toString().replace(/\s*\t*,+\s*\t*/g, ",").trim();
+                            mallpoint.size = $scope.mpData.size;
                             save(mallpoint, $rootScope.activeUser).
                             success(function() {
-                                var marker = new google.maps.Marker({
-                                    position: new google.maps.LatLng(mallpoint.latitude, mallpoint.longitude),
-                                    animation: google.maps.Animation.DROP,
-                                    map: $scope.map,
-                                    title: mallpoint.name
-                                });
+                                var icon;
+                                if (mallpoint.size === 'Shop')
+                                    icon = new L.Icon(MapService.createMarker('shop'));
+                                else
+                                    icon = new L.Icon(MapService.createMarker('mall'));
+                                var marker = new L.marker([mallpoint.latitude, mallpoint.longitude], {
+                                    bounceOnAdd: true,
+                                    icon: icon
+                                }).addTo($scope.map).bindPopup(mallpoint.name);
+
                                 var mpModelView = {};
-                                mpModelView.model = mallpoint;
-                                mpModelView.view = marker;
-                                $rootScope.mallpoints.push(mpModelView);
-                            })
+                                    mpModelView.model = mallpoint;
+                                    mpModelView.view = marker;
+                                    $rootScope.mallpoints.push(mpModelView);
+                            });
                         }
                     }
                 },
@@ -140,13 +172,13 @@ angular.module('mallpoint.services', ['ngResource'])
         delete longTap.promise;
     };
 
-    var createShopMarker = function(params) {
+    var createCanvasMarker = function(params) {
         var canvas, context;
 
-        var width = params.width || 30;
-        var height = params.height || 30;
+        var width = params.width || 40;
+        var height = params.height || 40;
         var radius = params.radius || 5;
-        var glowSize = params.glowSize || 2;
+        var glowSize = params.glowSize || Math.min(width, height) / 5;
         var color = params.color || 'white';
         var outlineColor = params.outlineColor || '#CC3300';
         var text = params.text || 'mp';
@@ -171,7 +203,7 @@ angular.module('mallpoint.services', ['ngResource'])
         context.closePath();
 
         if (glowSize > 0) {
-            context.shadowBlur = glowSize;
+            context.shadowBlur = glowSize * 1.5;
             context.shadowColor = outlineColor;
         }
 
@@ -179,149 +211,63 @@ angular.module('mallpoint.services', ['ngResource'])
         context.fillStyle = color;
         context.lineWidth = 2;
         context.fill();
+
+        context.shadowBlur = 0;
         context.stroke();
 
+        context.shadowBlur = 0;
+
         context.fillStyle = outlineColor;
-        context.font = (height / 2) + "px UbuntuTitling";
+        context.font = (height / 3) + "px UbuntuTitling";
         var size = context.measureText(text);
         context.fillText(text, width / 2 - size.width / 2, height * 3 / 5);
 
-        return canvas.toDataURL();
-    };
-
-    var createMallMarker = function(params) {
-        var canvas, context;
-
-        var radius = params.radius || 20;
-        var glowSize = params.glowSize || 2;
-        var color = params.color || 'white';
-        var outlineColor = params.outlineColor || '#CC3300';
-        var text = params.text || 'MP';
-
-        canvas = document.createElement("canvas");
-        canvas.width = radius * 2;
-        canvas.height = radius * 2;
-        var height = canvas.height;
-        var width = canvas.width;
-
-        context = canvas.getContext("2d");
-        context.clearRect(0, 0, width, height);
-
-        context.beginPath();
-        context.arc(radius, radius, radius - 2, 0, 2 * Math.PI);
-
-        if (glowSize > 0) {
-            context.shadowBlur = glowSize;
-            context.shadowColor = outlineColor;
+        return {
+            iconUrl: canvas.toDataURL(),
+            iconAnchor: [width/2, height/2]
         }
-
-        context.strokeStyle = outlineColor;
-        context.lineWidth = 2;
-        context.fillStyle = color;
-        context.fill();
-        context.stroke();
-
-        context.fillStyle = outlineColor;
-        context.font = (height / 2) + "px UbuntuTitling";
-        var size = context.measureText(text);
-        context.fillText(text, width / 2 - size.width / 2, height * 6.5 / 10);
-
-        return canvas.toDataURL();
     };
 
     return {
         addLongTapListener: function(elem, callback) {
-            google.maps.event.addListener(elem, "mousedown", function(event) {
-                console.log("onGoogleMapsMouseDown()");
 
-                if (angular.isUndefined(longTap.promise)) {
-                    longTap.promise = $timeout(function () {
-                        callback(event);
-
-                        delete longTap.promise;
-                        }, 1000);
-                }
-            });
-
-            google.maps.event.addListener(elem, "mouseup", function() {
-        	    console.log("onGoogleMapsMouseUp()");
-
-                longTapCancel();
-        	});
-
-        	google.maps.event.addListener(elem, "dragstart", function () {
-        	    console.log("onGoogleMapsDragStart()");
-
-                longTapCancel();
-            });
+            // elem.on('mousedown', function(event) {
+            //     console.log("onLeafletMapMouseDown()");
+            //
+            //     if (angular.isUndefined(longTap.promise)) {
+            //         longTap.promise = $timeout(function () {
+            //             callback(event);
+            //             delete longTap.promise;
+            //         }, 1000);
+            //     }
+            // });
+            //
+            // elem.on('mouseup', function() {
+            //     console.log("onLeafletMapMouseUp()");
+            //
+            //     longTapCancel();
+            // });
+            //
+            // elem.on('mousemove', function() {
+            //     console.log("onLeafletMapMouseMove()");
+            //
+            //     longTapCancel();
+            // });
         },
         createMarker: function(type, params) {
             params = params || {};
             switch(type) {
-                case 'shop':
-                    return createShopMarker(params);
-                    break;
-
                 case 'mall':
-                    return createMallMarker(params);
+                    params.width = 50;
+                    params.height = 50;
+                    params.outlineColor = params.outlineColor || 'black';
                     break;
-
-                default:
-                    params.width = 25;
-                    params.height = 25;
-                    params.radius = 4;
-                    params.color = "black";
-                    return createShopMarker(params);
             }
-        }
-
-    }
-})
-
-.factory('MarkerFactory', function($window) {
-
-    return {
-        createMarker: function(width, height, radius, color) {
-            var canvas, context;
-
-            canvas = document.createElement("canvas");
-            canvas.width = width;
-            canvas.height = height;
-            //
-            context = canvas.getContext("2d");
-            //
-            context.clearRect(0,0,width,height);
-
-            // background is yellow
-            context.fillStyle = "white";
-            //
-            // border is black
-            context.strokeStyle = color;
-
-            context.shadowBlur = 2;
-            context.shadowColor = color;
-            context.beginPath();
-            context.moveTo(radius + 2, 2);
-            context.lineTo(width - radius - 2, 2);
-            context.quadraticCurveTo(width - 2, 2, width - 2, radius + 2);
-            context.lineTo(width - 2, height - radius - 2);
-            context.quadraticCurveTo(width - 2, height - 2, width - radius - 2, height - 2);
-            context.lineTo(radius + 2, height - 2);
-            context.quadraticCurveTo(2, height - 2, 2, height - radius - 2);
-            context.lineTo(2, radius - 2);
-            context.quadraticCurveTo(2, 2, radius + 2, 2);
-            context.closePath();
-
-            context.fill();
-            context.stroke();
-
-            context.fillStyle = color;
-            context.font="12px UbuntuTitling";
-            context.fillText("mp", 4, 15);
-            //
-            return canvas.toDataURL();
+            return createCanvasMarker(params);
         }
     }
 })
+
+.search
 
 ;
