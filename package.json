@@ -20,7 +20,8 @@
     "org.apache.cordova.device",
     "org.apache.cordova.dialogs",
     "org.apache.cordova.file",
-    "org.apache.cordova.media"
+    "org.apache.cordova.media",
+    "org.apache.cordova.network-information"
   ],
   "cordovaPlatforms": [
     "android"

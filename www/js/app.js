@@ -7,7 +7,8 @@ angular.module('mallpoint', ['ionic',
                              'mallpoint.controllers',
                              'mallpoint.services',
                              'mallpoint.directives',
-                             'mallpoint.constants'])
+                             'mallpoint.constants',
+                             'mallpoint.filters'])
 
 .run(function($ionicPlatform, $ionicLoading, $rootScope) {
   $ionicPlatform.ready(function() {
@@ -21,14 +22,12 @@ angular.module('mallpoint', ['ionic',
     }
   });
 
-  $rootScope.$on('$stateChangeStart', function(event, toState){
-      $ionicLoading.show({ template: toState.name, noBackdrop: true, duration: 1000 });
+  $rootScope.$on('$stateChangeStart', function(event, toState) {
       console.log('Entering state: ' + toState.name);
   });
 })
 
 .config(function($stateProvider, $urlRouterProvider, $compileProvider) {
-    $compileProvider.imgSrcSanitizationWhitelist(/^\s*(https?|ftp|mailto|file|tel):/);
 
     $stateProvider
 
@@ -62,16 +61,6 @@ angular.module('mallpoint', ['ionic',
         }
     })
 
-    .state('app.debug', {
-        url: "/debug",
-        views: {
-            'menuContent': {
-                templateUrl: "templates/debug.html",
-                controller: 'DebugController'
-            }
-        }
-    })
-
     .state('app.map', {
         url: "/map",
         views: {
@@ -82,22 +71,31 @@ angular.module('mallpoint', ['ionic',
         }
     })
 
-    .state('app.mymallpoints', {
-        url: "/mymallpoints",
-        views: {
-            'menuContent': {
-                templateUrl: "templates/my-mallpoints.html",
-                controller: 'MyMallpointsController'
-            }
-        }
-    })
-
     .state('app.favorites', {
         url: "/favorites",
         views: {
             'menuContent': {
                 templateUrl: "templates/favorites.html",
                 controller: 'FavoritesController'
+            }
+        }
+    })
+
+    .state('app.settings', {
+        url: "/settings",
+        views: {
+            'menuContent': {
+                templateUrl: "templates/settings.html",
+                controller: 'SettingsController'
+            }
+        }
+    })
+
+    .state('app.about', {
+        url: "/about",
+        views: {
+            'menuContent': {
+                templateUrl: "templates/about.html"
             }
         }
     })

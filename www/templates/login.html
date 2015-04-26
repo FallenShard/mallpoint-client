@@ -22,12 +22,12 @@
                 </label>
 
                 <div class="padding">
-                    <div ng-show="showLoginError" class="error-block"><i class="icon ion-alert-circled"></i>Invalid email and/or password!</div>
                     <button type="submit" class="button button-block button-balanced"
-                            ng-disabled="!loginForm.$valid">
+                            ng-disabled="!loginForm.$valid && !connection.active">
                       Log In
                     </button>
-                    <button class="button button-block button-assertive" ui-sref="register">
+                    <button class="button button-block button-assertive" ui-sref="register"
+                            ng-disabled="!connection.active">
                       Register
                     </button>
                 </div>

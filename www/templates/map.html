@@ -2,6 +2,8 @@
     <ion-nav-buttons side="right">
         <button class="button button-icon icon ion-search" ng-click="search()">
         </button>
+        <button class="button button-icon icon ion-refresh" ng-click="clearSearch()">
+        </button>
     </ion-nav-buttons>
 
     <!-- <search-bar></search-bar> -->
@@ -11,9 +13,12 @@
     </ion-content>
     <ion-footer-bar class="bar-assertive">
         <div class="button-bar">
-            <button class="button button-clear" ng-click="takePicture()"><i class="icon ion-search"></i></button>
-            <img id="myTestImage" src="./img/ionic.png"></img>
-            <button id="debug" class="button button-clear">Debugging</button>
+            <button class="button button-clear icon ion-android-list" ng-click="openMyMallpoints()">
+            </button>
+            <button class="button button-clear icon ion-android-favorite-outline" ng-click="openFavorites()">
+            </button>
+            <button class="button button-clear icon ion-earth" ng-click="openNotifications()">
+            </button>
         </div>
     </ion-footer-bar>
 </ion-view>

@@ -1,4 +1,4 @@
-angular.module('mallpoint.services', ['ngResource'])
+angular.module('mallpoint.services', [])
 
 .factory('Geolocation', function($q) {
     return {
@@ -59,37 +59,201 @@ angular.module('mallpoint.services', ['ngResource'])
     };
 })
 
-.factory('Camera', function($q) {
+.factory('WiFi', function($ionicPlatform, $ionicPopup, $q) {
+    var checkConnection = function() {
+        if (!navigator.connection)
+            return true;
+        else if (navigator.connection.type === Connection.NONE)
+            return false;
+        else
+            return true;
+    };
+
     return {
-        takePicture: function(params) {
+        isActive: function($scope) {
             var deferred = $q.defer();
 
-            params = params || {};
-            params.quality = params.quality || 75;
-            params.targetWidth = params.targetWidth || 500;
-            params.targetHeight = params.targetHeight || 500;
-            params.saveToPhotoAlbum = params.saveToPhotoAlbum || false;
-            params.destinationType = params.destinationType || Camera.DestinationType.DATA_URL;
-            navigator.camera.getPicture(
-                function(result) {
-                    deferred.resolve(result);
-                },
-                function(error) {
-                    deferred.reject(error);
-                },
-                params);
+            $ionicPlatform.ready(function() {
+                var isActive = checkConnection();
+                if (isActive) {
+                    deferred.resolve(isActive);
+                }
+
+                else {
+                    deferred.reject($scope);
+                }
+            });
 
             return deferred.promise;
+        },
+        showNoWifiPopup: function($scope) {
+            var myPopup = $ionicPopup.show({
+                title: 'No Connection Detected',
+                scope: $scope,
+                template: 'No active internet connection has been detected. Please turn on your network connection and try again.',
+                buttons: [
+                    {
+                        text: 'OK',
+                        type: 'button-assertive',
+                        onTap: function() {
+                        }
+                    }
+                ]
+            });
         }
-    }
+    };
 })
 
 .factory('IndexedDB', function($q, $window) {
+
+    var dbName = "Mallpoints";
+    var db = null;
+
+    var openPriv = function() {
+        var deferred = $q.defer();
+
+        if (db) {
+            deferred.resolve(db);
+        }
+        else {
+            var request = $window.indexedDB.open(dbName, 3);
+            request.onsuccess = function(e) {
+                db = e.target.result;
+                deferred.resolve(db);
+            }
+            request.onerror = function(e) {
+                deferred.reject("Error opening the database!");
+            }
+            request.onupgradeneeded = function(e) {
+                console.log("Performing one-time setup!");
+                var thisDb = e.target.result;
+
+                if (!thisDb.objectStoreNames.contains("mallpoints")) {
+                    var mpObjectStore = thisDb.createObjectStore("mallpoints", { keyPath: "_id"});
+                    mpObjectStore.createIndex("name", "name", { unique: false });
+                    mpObjectStore.transaction.oncomplete = function(e) {
+                        console.log('Object store "mallpoints" created!');
+                    }
+                }
+
+                if (!thisDb.objectStoreNames.contains("favorites")) {
+                    var favObjectStore = thisDb.createObjectStore("favorites", { keyPath: "_id"});
+                    favObjectStore.createIndex("name", "name", { unique: false });
+                    favObjectStore.transaction.oncomplete = function(e) {
+                        console.log('Object store "favorites" created!');
+                    };
+                }
+            }
+        }
+
+        return deferred.promise;
+    };
+
     return {
         isSupported: function() {
             if ($window.indexedDB !== undefined) {
                 console.log("Yay! IndexedDB is supported:)");
             }
+        },
+        delete: function(databaseName) {
+            var deferred = $q.defer();
+
+            var request = $window.indexedDB.deleteDatabase(dbName);
+            request.onsuccess = function(e) {
+                deferred.resolve(databaseName + " deleted successfully!");
+            }
+            request.onerror = function(e) {
+                deferred.reject("Failed to delete " + databaseName);
+            }
+            request.onblocked = function() {
+                deferred.reject("Got blocked in my attempt to delete " + databaseName);
+            }
+
+            return deferred.promise;
+        },
+        open: openPriv,
+        close: function() {
+            if (db)
+                db.close();
+
+        },
+        addBatch: function(data) {
+
+            var deferred = $q.defer();
+
+            openPriv().then(function(db) {
+                var transaction = db.transaction(["mallpoints"], "readwrite");
+                var store = transaction.objectStore("mallpoints");
+
+                for (var i = 0; i < data.length; i++) {
+                    var request = store.add(data[i]);
+                    request.onsuccess = function(e) {
+                    };
+                    request.onerror = function(e) {
+                        deferred.reject(e);
+                    }
+                };
+
+                transaction.oncomplete = function(event) {
+                    deferred.resolve("Success!");
+                };
+            });
+
+            return deferred.promise;
+        },
+        readAll: function() {
+            var deferred = $q.defer();
+
+            openPriv().then(function(db) {
+                var transaction = db.transaction(["mallpoints"], "readonly");
+                var store = transaction.objectStore('mallpoints');
+                var result = [];
+
+                var cursor = store.openCursor();
+                cursor.onsuccess = function(evt) {
+                    var cursor = evt.target.result;
+                    if (cursor) {
+                        result.push(cursor.value);
+                        cursor.continue();
+                    }
+                }
+                cursor.onerror = function(error) {
+                    deferred.reject(error);
+                }
+
+                transaction.oncomplete = function(event) {
+                    deferred.resolve(result);
+                }
+            });
+
+            return deferred.promise;
+        },
+        deleteAll: function() {
+            var deferred = $q.defer();
+
+            openPriv().then(function(db) {
+                var transaction = db.transaction(["mallpoints"], "readwrite");
+                var store = transaction.objectStore('mallpoints');
+                var result = [];
+
+                var cursor = store.openCursor();
+                cursor.onsuccess = function(evt) {
+                    var delCursor = evt.target.result;
+                    if (delCursor) {
+                        delCursor.delete();
+                        delCursor.continue();
+                    }
+                }
+                cursor.onerror = function(error) {
+                    deferred.reject(error);
+                }
+
+                transaction.oncomplete = function(event) {
+                    deferred.resolve(result);
+                }
+            });
+
+            return deferred.promise;
         }
     }
 })
@@ -106,13 +270,6 @@ angular.module('mallpoint.services', ['ngResource'])
             webSocket.close();
 
         webSocket = new WebSocket(WebSocketConfig.baseRoute());
-
-        webSocket.onopen = function(event) {
-            // var message = {};
-            // message.type = "hello";
-            // message.body = "HelloWorld!";
-            // webSocket.send(JSON.stringify(message));
-        };
 
         webSocket.onmessage = function(event) {
             var message = JSON.parse(event.data);
@@ -174,13 +331,15 @@ angular.module('mallpoint.services', ['ngResource'])
             intervalPromise = $interval(function () {
                 if ($rootScope.activeUserLatLng)
                 {
-                    console.log("Geofence message outgoing!");
                     var message = {};
                     message.type = 'data';
                     message.token = connectionToken;
                     message.radius = 0.3;
                     message.coords = $rootScope.activeUserLatLng;
-                    webSocket.send(JSON.stringify(message));
+                    if (webSocket)
+                        webSocket.send(JSON.stringify(message));
+                    else
+                        $interval.cancel(intervalPromise);
                 }
             }, interval);
         },
@@ -190,17 +349,34 @@ angular.module('mallpoint.services', ['ngResource'])
     }
 })
 
-.factory('Authentication', function($http, $q, $ionicPopup, ServerConfig, LocalStorage) {
+.factory('User', function() {
     var user = {};
+    var latLng = {};
 
+    return {
+        setData: function(activeUser) {
+            user = activeUser;
+        },
+        getData: function() {
+            return user;
+        },
+        setLatLng: function(latLng) {
+            latLng = latLng;
+        },
+        getLatLng: function() {
+            return latLng;
+        }
+    };
+})
+
+.factory('Authentication', function($http, $q, $ionicPopup, ServerConfig, LocalStorage, User) {
     var loginSuccess = function(result) {
-        // Store this for autologin on next start-ups
         var creds = {};
         creds.email = result.data.email;
         creds.passwordHash = result.data.passwordHash;
         LocalStorage.setObject('credentials', creds);
 
-        user = result.data;
+        User.setData(result.data);
     };
 
     var showErrorPoup = function(title, template, $scope) {
@@ -212,7 +388,7 @@ angular.module('mallpoint.services', ['ngResource'])
                 {
                     text: 'OK',
                     type: 'button-assertive',
-                    onTap: function(e) {
+                    onTap: function() {
                     }
                 }
             ]
@@ -226,13 +402,23 @@ angular.module('mallpoint.services', ['ngResource'])
             $http.post(ServerConfig.baseRoute() + "/login", $scope.user)
             .then(function(result) {
                 loginSuccess(result);
-                deferred.resolve(user);
+                deferred.resolve();
             })
             .catch(function(reject) {
-                showErrorPoup('Invalid Credentials',
-                              'Invalid email and/or password provided. Please try again.',
-                              $scope);
-                deferred.reject("Invalid credentials provided.");
+                if (reject.status === 0) {
+                    showErrorPoup('Connection Not Established',
+                                  'Service might be offline or down for maintenance. Please try again later.',
+                                  $scope);
+                    deferred.reject("Server might be offline.");
+                }
+
+                else {
+                    showErrorPoup('Invalid Credentials',
+                                  'Invalid email and/or password provided. Please try again.',
+                                  $scope);
+
+                    deferred.reject("Invalid credentials in storage.");
+                }
             });
 
             return deferred.promise;
@@ -246,13 +432,23 @@ angular.module('mallpoint.services', ['ngResource'])
                 $http.post(ServerConfig.baseRoute() + "/autologin", credentials)
                 .then(function(result) {
                     loginSuccess(result);
-                    deferred.resolve(user);
+                    deferred.resolve();
                 })
                 .catch(function(reject) {
-                    showErrorPoup('Invalid Credentials',
-                                  'Invalid email and/or password provided. Please try again.',
-                                  $scope);
-                    deferred.reject("Invalid credentials in storage.");
+                    if (reject.status === 0) {
+                        showErrorPoup('Connection Not Established',
+                                      'Service might be offline or down for maintenance. Please try again later.',
+                                      $scope);
+                        deferred.reject("Server might be offline.");
+                    }
+
+                    else {
+                        showErrorPoup('Invalid Credentials',
+                                      'Invalid email and/or password provided. Please try again.',
+                                      $scope);
+
+                        deferred.reject("Invalid credentials in storage.");
+                    }
                 });
             }
             else
@@ -269,7 +465,7 @@ angular.module('mallpoint.services', ['ngResource'])
                 $http.post(ServerConfig.baseRoute() + "/register", newUser)
                 .then(function(result) {
                     loginSuccess(result);
-                    deferred.resolve(user);
+                    deferred.resolve();
                 })
                 .catch(function(reject) {
                     showErrorPoup('Failed Registration Login',
@@ -286,15 +482,14 @@ angular.module('mallpoint.services', ['ngResource'])
             }
 
             return deferred.promise;
-        },
-        getUser: function() {
-            return user;
         }
     };
 })
 
-.factory('Mallpoints', function($http, $q, $ionicPopup, ServerConfig, Authentication, Map) {
-    var mallpoints = [];
+.factory('Mallpoints', function($http, $q, $ionicPopup, ServerConfig, Authentication, Map, IndexedDB) {
+    var userMallpoints = [];
+    var radiusMallpoints = [];
+    var favorites = [];
 
     var showConfirmPopup = function($scope) {
         var deferred = $q.defer();
@@ -385,12 +580,15 @@ angular.module('mallpoint.services', ['ngResource'])
         options.buttons.push(okButton);
         options.buttons.push(cancelButton);
 
-        $ionicPopup.show(options).then(function(result) {
+        $ionicPopup
+        .show(options)
+        .then(function(result) {
             if (result === undefined)
                 deferred.reject("Search canceled.");
             else
                 deferred.resolve(result);
-        }, function(error) {
+        })
+        .catch(function(error) {
                 deferred.reject("Search canceled.");
         });
 
@@ -398,12 +596,41 @@ angular.module('mallpoint.services', ['ngResource'])
     };
 
     return {
-        getAll: function() {
+        // getAll: function(refresh) {
+        //     var deferred = $q.defer();
+        //
+        //     if ((refresh !== undefined && refresh === true) || mallpoints.length === 0) {
+        //         $http.get(ServerConfig.baseRoute() + "/mallpoints")
+        //         .then(function(results) {
+        //             mallpoints = results.data;
+        //
+        //             IndexedDB.deleteAll().then(function() {
+        //                 IndexedDB.addBatch(mallpoints).then(function() {
+        //                     console.log("Saved successfully to indexedDB");
+        //                 });
+        //             });
+        //
+        //             deferred.resolve(mallpoints);
+        //         })
+        //         .catch(function(error) {
+        //             deferred.reject(error);
+        //         });
+        //     }
+        //     else {
+        //         deferred.resolve(mallpoints);
+        //     }
+        //
+        //     return deferred.promise;
+        // },
+        radiusSearch: function(latLng, userId) {
             var deferred = $q.defer();
 
-            $http.get(ServerConfig.baseRoute() + "/mallpoints")
+            var params = { lat: latLng.lat, lng: latLng.lng, userId: userId };
+            $http.post(ServerConfig.baseRoute() + "/mallpoints/radius", params)
             .then(function(results) {
-                mallpoints = results.data;
+                var mallpoints = {};
+                mallpoints.data = results.data;
+                mallpoints.type = 'Radius';
 
                 deferred.resolve(mallpoints);
             })
@@ -411,10 +638,65 @@ angular.module('mallpoint.services', ['ngResource'])
                 deferred.reject(error);
             });
 
+            // if ((refresh !== undefined && refresh === true) || mallpoints.length === 0) {
+            //     var params = { lat: latLng.lat, lng: latLng.lng };
+            //     $http.post(ServerConfig.baseRoute() + "/mallpoints/radius", params)
+            //     .then(function(results) {
+            //         mallpoints = results.data;
+            //
+            //         IndexedDB.deleteAll().then(function() {
+            //             IndexedDB.addBatch(mallpoints).then(function() {
+            //             });
+            //         });
+            //
+            //         deferred.resolve(mallpoints);
+            //     })
+            //     .catch(function(error) {
+            //         deferred.reject(error);
+            //     });
+            // }
+            // else {
+            //     deferred.resolve(mallpoints);
+            // }
+
             return deferred.promise;
         },
         getAllFromUser: function(user) {
-            return $http.post(ServerConfig.baseRoute() + "/mallpoints/user", user);
+            var deferred = $q.defer();
+
+            $http.post(ServerConfig.baseRoute() + "/mallpoints/user", user)
+            .then(function(result) {
+                var mallpoints = {};
+                mallpoints.data = result.data;
+                mallpoints.type = 'Owned';
+
+                deferred.resolve(mallpoints);
+            })
+            .catch(function(error) {
+                deferred.eject(error);
+            });
+
+            return deferred.promise;
+        },
+        getAllOffline: function(refresh) {
+            var deferred = $q.defer();
+
+            if ((refresh !== undefined && refresh === true) || mallpoints.length === 0) {
+                IndexedDB.readAll()
+                .then(function(result) {
+                    mallpoints = result;
+
+                    deferred.resolve(mallpoints);
+                })
+                .catch(function(error) {
+                    deferred.reject(error);
+                });
+            }
+            else {
+                deferred.resolve(mallpoints);
+            }
+
+            return deferred.promise;
         },
         tagSearch: function($scope) {
             var deferred = $q.defer();
@@ -435,12 +717,13 @@ angular.module('mallpoint.services', ['ngResource'])
 
             return deferred.promise;
         },
-        uploadPhoto: function(data) {
+        tagSearchOffline: function($scope) {
             var deferred = $q.defer();
 
-            $http.post(ServerConfig.baseRoute() + "/mallpoints/photo", { imgData: data })
-            .then(function(result) {
-                deferred.resolve(result.data);
+            showSearchPopup($scope)
+            .then(function(filter) {
+                var filteredPoints = tagSearchOfflinePriv(filter);
+                deferred.resolve(filteredPoints);
             })
             .catch(function(error) {
                 deferred.reject(error);
@@ -478,8 +761,14 @@ angular.module('mallpoint.services', ['ngResource'])
     var map = null;
     var mapLayer = null;
     var userMarker = null;
-    var markers = [];
+
+    var markers = {};
+    markers['Owned'] = [];
+    markers['Radius'] = [];
+    markers['Favorites'] = [];
+
     var iconCache = {};
+    var highlightedMarker = null;
 
     var createCanvasIcon = function(params) {
         var canvas, context;
@@ -537,6 +826,46 @@ angular.module('mallpoint.services', ['ngResource'])
         }
     };
 
+    var initIconCache = function() {
+        iconCache.shopOwned = new L.Icon(createCanvasIcon({}));
+        iconCache.shopRadius = new L.Icon(createCanvasIcon({ outlineColor: 'black'}));
+        iconCache.shopFavorite = new L.Icon(createCanvasIcon({ outlineColor: '#ffc900'}));
+        iconCache.shopHighlighted = new L.Icon(createCanvasIcon({ outlineColor: '#0000FF'}));
+
+        iconCache.mallOwned = new L.Icon(createCanvasIcon({ width: 50, height: 50, color: '#CC3300', outlineColor: 'white' }));
+        iconCache.mallRadius = new L.Icon(createCanvasIcon({ width: 50, height: 50, color: 'black', outlineColor: 'white' }));
+        iconCache.mallFavorite = new L.Icon(createCanvasIcon({ width: 50, height: 50, color: '#ffc900', outlineColor: 'white' }));
+        iconCache.mallHighlighted = new L.Icon(createCanvasIcon({ width: 50, height: 50, color: '#0000FF', outlineColor: 'white' }));
+    };
+
+    var highlightMarkersPriv = function(markers, mallpoints) {
+        for (var i = 0; i < markers.length; i++) {
+            markers[i].view.setOpacity(0.3);
+
+            for (var k = 0; k < mallpoints.length; k++) {
+                if (mallpoints[k]._id === markers[i].model._id) {
+                    markers[i].view.setOpacity(1.0);
+                }
+            }
+        }
+    };
+
+    var clearHighlightsPriv = function(markers) {
+        for (var i = 0; i < markers.length; i++)
+            markers[i].view.setOpacity(1.0);
+    };
+
+    var onClickClosure = function(marker, type) {
+        return function() {
+            if (!marker.isFavorite)
+                marker.view.setIcon(iconCache[marker.model.size.toLowerCase() + 'Favorite']);
+            else
+                marker.view.setIcon(iconCache[marker.model.size.toLowerCase() + type]);
+
+            marker.isFavorite = !marker.isFavorite;
+        }
+    };
+
     return {
         create: function(domElement, params) {
             map = new L.Map(domElement);
@@ -557,28 +886,31 @@ angular.module('mallpoint.services', ['ngResource'])
             map.addLayer(mapLayer);
             map.setZoom(params.zoom);
 
-            iconCache.shop = new L.Icon(createCanvasIcon({}));
-            iconCache.shopFaded = new L.Icon(createCanvasIcon({ outlineColor:'rgba(204, 51, 0, 0.3)', color:'rgba(255, 255, 255, 0.3)'}));
-            iconCache.mall = new L.Icon(createCanvasIcon({ width: 50, height: 50, color: '#CC3300', outlineColor: 'white' }));
-            iconCache.mallFaded = new L.Icon(createCanvasIcon({ width: 50, height: 50, color:'rgba(204, 51, 0, 0.3)', outlineColor:'rgba(255, 255, 255, 0.3)'}));
+            initIconCache();
 
             return map;
         },
         displayMallpoints: function(mallpoints) {
-            var shopIcon = iconCache.shop;
-            var mallIcon = iconCache.mall;
+            var shopIcon = iconCache['shop' + mallpoints.type];
+            var mallIcon = iconCache['mall' + mallpoints.type];
 
-            markers = [];
-            for (var i = 0; i < mallpoints.length; i++) {
+            for (var i = 0; i < markers[mallpoints.type].length; i++) {
+                map.removeLayer(markers[mallpoints.type][i].view);
+            }
 
+            markers[mallpoints.type] = [];
+
+            for (var i = 0; i < mallpoints.data.length; i++) {
                 var marker = {};
-                marker.model = mallpoints[i];
-                marker.view = new L.marker([mallpoints[i].latitude, mallpoints[i].longitude], {
+                marker.model = mallpoints.data[i];
+                marker.isFavorite = false;
+                marker.view = new L.marker([mallpoints.data[i].latitude, mallpoints.data[i].longitude], {
                     bounceOnAdd: true,
-                    icon: mallpoints[i].size === 'Shop' ? shopIcon : mallIcon
-                }).addTo(map).bindPopup(mallpoints[i].name);
+                    icon: mallpoints.data[i].size === 'Shop' ? shopIcon : mallIcon
+                }).addTo(map).bindPopup(mallpoints.data[i].name);
+                marker.view.on('click', onClickClosure(marker, mallpoints.type));
 
-                markers.push(marker);
+                markers[mallpoints.type].push(marker);
             }
         },
         addMallpoint: function(mallpoint) {
@@ -592,13 +924,21 @@ angular.module('mallpoint.services', ['ngResource'])
             markers.push(marker);
         },
         highlightMallpoints: function(mallpoints) {
-            for (var i = 0; i < markers.length; i++) {
-                markers[i].view.setIcon(iconCache[markers[i].model.size.toLowerCase() + "Faded"]);
+            highlightMarkersPriv(markers['Owned'], mallpoints);
+            highlightMarkersPriv(markers['Radius'], mallpoints);
+            highlightMarkersPriv(markers['Favorites'], mallpoints);
+        },
+        highlight: function(mallpoint) {
+            if (highlightedMarker)
+                highlightedMarker.view.setIcon(iconCache[highlightedMarker.model.size.toLowerCase()]);
 
-                for (var k = 0; k < mallpoints.length; k++) {
-                    if (mallpoints[k]._id === markers[i].model._id) {
-                        markers[i].view.setIcon(iconCache[markers[i].model.size.toLowerCase()]);
-                    }
+            for (var i = 0; i < markers.length; i++) {
+                if (markers[i].model._id === mallpoint._id) {
+                    markers[i].view.setIcon(iconCache[markers[i].model.size.toLowerCase() + "Highlighted"]);
+                    map.setView([markers[i].model.latitude, markers[i].model.longitude]);
+                    highlightedMarker = markers[i];
+
+                    break;
                 }
             }
         },
@@ -615,6 +955,16 @@ angular.module('mallpoint.services', ['ngResource'])
             userMarker.setZIndexOffset(999);
 
             return userMarker;
+        },
+        createUserCircle: function() {
+            userCircle = new L.circle([0, 0], 300).addTo(map);
+
+            return userCircle;
+        },
+        clearHighlights: function() {
+            clearHighlightsPriv(markers['Owned']);
+            clearHighlightsPriv(markers['Radius']);
+            clearHighlightsPriv(markers['Favorites']);
         }
     }
 })
