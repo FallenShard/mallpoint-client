@@ -4,6 +4,8 @@
         </button>
         <button class="button button-icon icon ion-refresh" ng-click="clearSearch()">
         </button>
+        <button class="button button-icon icon ion-cloud" ng-click="sync()">
+        </button>
     </ion-nav-buttons>
 
     <!-- <search-bar></search-bar> -->
@@ -13,11 +15,12 @@
     </ion-content>
     <ion-footer-bar class="bar-assertive">
         <div class="button-bar">
-            <button class="button button-clear icon ion-android-list" ng-click="openMyMallpoints()">
+            <button class="button button-clear icon ion-android-list" ng-click="openModal(myMallpointsModal)">
             </button>
-            <button class="button button-clear icon ion-android-favorite-outline" ng-click="openFavorites()">
+            <button class="button button-clear icon ion-android-favorite-outline" ng-click="openModal(favoritesModal, 'Favorites')">
             </button>
-            <button class="button button-clear icon ion-earth" ng-click="openNotifications()">
+            <button id="notif-button" class="button button-clear icon ion-earth" ng-click="openModal(notificationsModal)">
+                {{notifications.length || ''}}
             </button>
         </div>
     </ion-footer-bar>

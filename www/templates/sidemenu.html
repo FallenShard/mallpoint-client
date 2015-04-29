@@ -1,7 +1,7 @@
 <ion-side-menus enable-menu-with-back-views="false">
     <ion-side-menu side="left">
         <ion-header-bar class="bar-stable bar-assertive">
-            <h1 class="title theme-font">{{activeUser.username}}</h1>
+            <h1 class="title theme-font">{{username}}</h1>
         </ion-header-bar>
 
         <ion-content>
@@ -27,7 +27,7 @@
                 <ion-item class="side-menu-heading">
                     ACCOUNT
                 </ion-item>
-                <ion-item class="item-icon-left side-menu-action" nav-clear menu-close href="#/app/logout">
+                <ion-item class="item-icon-left" nav-clear menu-close href="#/app/logout">
                     <i class="icon ion-log-out assertive"></i>
                     Log Out
                 </ion-item>

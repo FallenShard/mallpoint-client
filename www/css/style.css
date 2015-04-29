@@ -28,11 +28,6 @@
     height: auto;
 }
 
-.side-menu-action {
-    background-color: transparent;
-    border: 0px;
-}
-
 .side-menu-heading {
     background-color: #CC3300;
     border: 1px;
@@ -42,60 +37,6 @@
     font-weight: bold;
 }
 
-.theme-color {
-    color : #CC3300;
-}
-
-.error-block {
-    border-radius: 3px;
-    border: 2px solid #CC3300;
-    color: #CC3300;
-    text-align: center;
-}
-
 .popup-container .popup {
   width: 70%;
-}
-
-/* ------- SEARCH ----*/
-
-.searchBar {
-	color: #fff;
-	margin: 0 !important;
-	padding: 0;
-}
-.searchBar .icon {
-	font-size: 27px;
-	line-height: 1.2;
-	padding-right: 6px;
-	padding-left: 6px;
-}
-.searchBar .searchTxt {
-	border-bottom: 1px solid #fff;
-    position: fixed;
-	left: 55px;
-	width: calc(100% - 100px);
-	height: calc(100% - 10px);
-}
-.searchBar.numicons2 .searchTxt {
-	width: calc(100% - 10px);
-}
-.searchBar .searchTxt > .bgdiv {
-	background-color: #CC3300;
-	width: 100%;
-	height: 100%;
-	position: absolute;
-}
-.searchBar .searchTxt > .bgtxt {
-	position: absolute;
-	top: 0;
-	left: 0;
-	width: 100%;
-	height: 100%;
-}
-.searchBar .searchTxt input {
-	background-color: inherit;
-	color: #FFFFFF;
-	padding-left: 5px;
-	padding-right:5px;
 }

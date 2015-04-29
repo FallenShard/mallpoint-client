@@ -17,4 +17,9 @@ angular.module('mallpoint.constants', [])
     baseRoute: function() {
         return 'ws://' + this.ip + ':' + this.port + this.baseUrl;
     }
+})
+
+.constant('IDBStores', {
+    Favorites: 'favorites',
+    Owned: 'mallpoints'
 });

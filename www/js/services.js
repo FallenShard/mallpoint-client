@@ -69,6 +69,22 @@ angular.module('mallpoint.services', [])
             return true;
     };
 
+    var showNoWifiPopup = function($scope) {
+        $ionicPopup.show({
+            title: 'No Connection Detected',
+            scope: $scope,
+            template: 'No active internet connection has been detected. Please turn on your network connection and try again.',
+            buttons: [
+                {
+                    text: 'OK',
+                    type: 'button-assertive',
+                    onTap: function() {
+                    }
+                }
+            ]
+        });
+    };
+
     return {
         isActive: function($scope) {
             var deferred = $q.defer();
@@ -80,31 +96,17 @@ angular.module('mallpoint.services', [])
                 }
 
                 else {
-                    deferred.reject($scope);
+                    showNoWifiPopup($scope);
+                    deferred.reject("Server might be offline.");
                 }
             });
 
             return deferred.promise;
-        },
-        showNoWifiPopup: function($scope) {
-            var myPopup = $ionicPopup.show({
-                title: 'No Connection Detected',
-                scope: $scope,
-                template: 'No active internet connection has been detected. Please turn on your network connection and try again.',
-                buttons: [
-                    {
-                        text: 'OK',
-                        type: 'button-assertive',
-                        onTap: function() {
-                        }
-                    }
-                ]
-            });
         }
     };
 })
 
-.factory('IndexedDB', function($q, $window) {
+.factory('IndexedDB', function($q, $window, IDBStores) {
 
     var dbName = "Mallpoints";
     var db = null;
@@ -116,7 +118,7 @@ angular.module('mallpoint.services', [])
             deferred.resolve(db);
         }
         else {
-            var request = $window.indexedDB.open(dbName, 3);
+            var request = $window.indexedDB.open(dbName, 5);
             request.onsuccess = function(e) {
                 db = e.target.result;
                 deferred.resolve(db);
@@ -177,13 +179,12 @@ angular.module('mallpoint.services', [])
                 db.close();
 
         },
-        addBatch: function(data) {
-
+        addAll: function(data, origin) {
             var deferred = $q.defer();
 
             openPriv().then(function(db) {
-                var transaction = db.transaction(["mallpoints"], "readwrite");
-                var store = transaction.objectStore("mallpoints");
+                var transaction = db.transaction([IDBStores[origin]], "readwrite");
+                var store = transaction.objectStore(IDBStores[origin]);
 
                 for (var i = 0; i < data.length; i++) {
                     var request = store.add(data[i]);
@@ -191,30 +192,59 @@ angular.module('mallpoint.services', [])
                     };
                     request.onerror = function(e) {
                         deferred.reject(e);
-                    }
+                    };
                 };
 
                 transaction.oncomplete = function(event) {
                     deferred.resolve("Success!");
                 };
+
+                transaction.onerror = function(event) {
+                    deferred.reject("Error working with IndexedDB");
+                };
             });
 
             return deferred.promise;
         },
-        readAll: function() {
+        add: function(mallpoint, origin) {
             var deferred = $q.defer();
 
             openPriv().then(function(db) {
-                var transaction = db.transaction(["mallpoints"], "readonly");
-                var store = transaction.objectStore('mallpoints');
+                var transaction = db.transaction([IDBStores[origin]], "readwrite");
+                var store = transaction.objectStore(IDBStores[origin]);
+
+                var request = store.add(mallpoint);
+                request.onsuccess = function(e) {
+                };
+                request.onerror = function(e) {
+                    deferred.reject(e);
+                };
+
+                transaction.oncomplete = function(event) {
+                    deferred.resolve(mallpoint);
+                };
+
+                transaction.onerror = function(event) {
+                    deferred.reject("Error working with IndexedDB");
+                };
+            });
+
+            return deferred.promise;
+        },
+        readAll: function(origin) {
+            var deferred = $q.defer();
+
+            openPriv().then(function(db) {
+                var transaction = db.transaction([IDBStores[origin]], "readonly");
+                var store = transaction.objectStore(IDBStores[origin]);
                 var result = [];
 
                 var cursor = store.openCursor();
                 cursor.onsuccess = function(evt) {
-                    var cursor = evt.target.result;
-                    if (cursor) {
-                        result.push(cursor.value);
-                        cursor.continue();
+                    var readCursor = evt.target.result;
+                    if (readCursor) {
+                        result.push(readCursor.value);
+                        readCursor.continue();
                     }
                 }
                 cursor.onerror = function(error) {
@@ -228,12 +258,12 @@ angular.module('mallpoint.services', [])
 
             return deferred.promise;
         },
-        deleteAll: function() {
+        deleteAll: function(origin) {
             var deferred = $q.defer();
 
             openPriv().then(function(db) {
-                var transaction = db.transaction(["mallpoints"], "readwrite");
-                var store = transaction.objectStore('mallpoints');
+                var transaction = db.transaction([IDBStores[origin]], "readwrite");
+                var store = transaction.objectStore(IDBStores[origin]);
                 var result = [];
 
                 var cursor = store.openCursor();
@@ -254,104 +284,36 @@ angular.module('mallpoint.services', [])
             });
 
             return deferred.promise;
-        }
-    }
-})
-
-.factory('WebSocket', function($interval, $timeout, WebSocketConfig) {
-    var webSocket = null;
-    var connectionToken = -1;
-    var intervalPromise = null;
-
-    var messageCallback = null;
-
-    var initPriv = function() {
-        if (webSocket)
-            webSocket.close();
-
-        webSocket = new WebSocket(WebSocketConfig.baseRoute());
-
-        webSocket.onmessage = function(event) {
-            var message = JSON.parse(event.data);
-
-            if (messageCallback)
-                messageCallback(message);
-
-            switch(message.type) {
-                case 'hello':
-                    connectionToken = message.token;
-                    break;
-
-                case 'mallpoints':
-                    console.log(message.mallpoints);
-                    break;
-            }
-        };
-
-        webSocket.onclose = function(event) {
-            console.log("Lost connection to the server");
-            webSocket = null;
-        };
-
-        webSocket.onerror = function(event) {
-            console.log("Error in connection!");
-            webSocket = null;
-            reconnect();
-        };
-    };
-
-    var reconnect = function() {
-        $timeout(function() {
-            initPriv();
-        }, 10000);
-    }
-
-    return {
-        init: initPriv,
-        onMessage: function(callback) {
-            messageCallback = callback;
         },
-        send: function(message) {
-            webSocket.send(JSON.stringify(message));
-        },
-        close: function() {
-            if (webSocket)
-            {
-                var message = {};
-                message.type = 'remove';
-                message.token = connectionToken;
-                webSocket.send(JSON.stringify(message));
-                webSocket.close();
-                webSocket = null;
-                connectionToken = -1;
-            }
-        },
-        startGeofencing: function($rootScope, interval) {
-            interval = interval || 5000;
-            intervalPromise = $interval(function () {
-                if ($rootScope.activeUserLatLng)
-                {
-                    var message = {};
-                    message.type = 'data';
-                    message.token = connectionToken;
-                    message.radius = 0.3;
-                    message.coords = $rootScope.activeUserLatLng;
-                    if (webSocket)
-                        webSocket.send(JSON.stringify(message));
-                    else
-                        $interval.cancel(intervalPromise);
+        delete: function(objectId, origin) {
+            var deferred = $q.defer();
+
+            openPriv().then(function(db) {
+                var transaction = db.transaction([IDBStores[origin]], "readwrite");
+                var store = transaction.objectStore(IDBStores[origin]);
+
+                var request = store.delete(objectId);
+                var cursor = store.openCursor();
+                request.onsuccess = function(evt) {
+                    deferred.resolve("Success");
                 }
-            }, interval);
-        },
-        stopGeofencing: function() {
-            $interval.cancel(intervalPromise);
+                cursor.onerror = function(error) {
+                    deferred.reject(error);
+                }
+
+                transaction.oncomplete = function(event) {
+                    deferred.resolve("Success");
+                }
+            });
+
+            return deferred.promise;
         }
     }
 })
 
 .factory('User', function() {
-    var user = {};
-    var latLng = {};
+    var user = null;
+    var latLng = null;
 
     return {
         setData: function(activeUser) {
@@ -360,8 +322,8 @@ angular.module('mallpoint.services', [])
         getData: function() {
             return user;
         },
-        setLatLng: function(latLng) {
-            latLng = latLng;
+        setLatLng: function(latLong) {
+            latLng = latLong;
         },
         getLatLng: function() {
             return latLng;
@@ -486,10 +448,100 @@ angular.module('mallpoint.services', [])
     };
 })
 
-.factory('Mallpoints', function($http, $q, $ionicPopup, ServerConfig, Authentication, Map, IndexedDB) {
-    var userMallpoints = [];
-    var radiusMallpoints = [];
-    var favorites = [];
+.factory('Geofencing', function($interval, $timeout, WebSocketConfig, User) {
+    var webSocket = null;
+    var connectionToken = -1;
+    var intervalPromise = null;
+
+    var dataCallback = null;
+
+    var initPriv = function() {
+        if (webSocket)
+            webSocket.close();
+
+        webSocket = new WebSocket(WebSocketConfig.baseRoute());
+
+        webSocket.onmessage = function(event) {
+            var message = JSON.parse(event.data);
+
+            switch(message.type) {
+                case 'hello':
+                    connectionToken = message.token;
+                    break;
+
+                case 'mallpoints':
+                    if (dataCallback)
+                        dataCallback(message.mallpoints);
+                    break;
+            }
+        };
+
+        webSocket.onclose = function(event) {
+            console.log("Lost connection to the server");
+            webSocket = null;
+        };
+
+        webSocket.onerror = function(event) {
+            console.log("Error in connection!");
+            webSocket = null;
+            reconnect();
+        };
+    };
+
+    var reconnect = function() {
+        $timeout(function() {
+            initPriv();
+        }, 3000);
+    }
+
+    return {
+        init: initPriv,
+        onMessage: function(callback) {
+            dataCallback = callback;
+        },
+        send: function(message) {
+            webSocket.send(JSON.stringify(message));
+        },
+        close: function() {
+            if (webSocket)
+            {
+                var message = {};
+                message.type = 'remove';
+                message.token = connectionToken;
+                webSocket.send(JSON.stringify(message));
+                webSocket.close();
+                webSocket = null;
+                connectionToken = -1;
+            }
+        },
+        start: function(interval) {
+            interval = interval || 5000;
+            intervalPromise = $interval(function () {
+                if (User.getLatLng())
+                {
+                    var message = {};
+                    message.type = 'data';
+                    message.token = connectionToken;
+                    message.radius = 0.3;
+                    message.coords = User.getLatLng();
+                    if (webSocket)
+                        webSocket.send(JSON.stringify(message));
+                    else
+                        $interval.cancel(intervalPromise);
+                }
+            }, interval);
+        },
+        stop: function() {
+            $interval.cancel(intervalPromise);
+        }
+    }
+})
+
+.factory('Mallpoints', function($http, $q, $ionicPopup, ServerConfig, User, IndexedDB) {
+    var mallpoints = {};
+    mallpoints['Favorites'] = [];
+    mallpoints['Owned'] = [];
+    mallpoints['Radius'] = [];
 
     var showConfirmPopup = function($scope) {
         var deferred = $q.defer();
@@ -514,17 +566,16 @@ angular.module('mallpoint.services', [])
             text: 'OK',
             type: 'button-assertive',
             onTap: function(e) {
-                if (!$scope.mpData.name ||
-                    !$scope.mpData.type) {
+                if (!$scope.mpData.name || !$scope.mpData.type) {
                     e.preventDefault();
                 }
                 else {
-                    var mallpoint = {};
-                    mallpoint.name = $scope.mpData.name;
-                    mallpoint.type = $scope.mpData.type;
-                    mallpoint.tags = $scope.mpData.tags ? $scope.mpData.tags.toString().replace(/\s*\t*,+\s*\t*/g, ",").trim() : '';
-                    mallpoint.size = $scope.mpData.size;
-                    return mallpoint;
+                    var newMallpoint = {};
+                    newMallpoint.name = $scope.mpData.name;
+                    newMallpoint.type = $scope.mpData.type;
+                    newMallpoint.tags = $scope.mpData.tags ? $scope.mpData.tags.toString().replace(/\s*\t*,+\s*\t*/g, ",").trim() : '';
+                    newMallpoint.size = $scope.mpData.size;
+                    return newMallpoint;
                 }
             }
         };
@@ -580,8 +631,7 @@ angular.module('mallpoint.services', [])
         options.buttons.push(okButton);
         options.buttons.push(cancelButton);
 
-        $ionicPopup
-        .show(options)
+        $ionicPopup.show(options)
         .then(function(result) {
             if (result === undefined)
                 deferred.reject("Search canceled.");
@@ -595,106 +645,194 @@ angular.module('mallpoint.services', [])
         return deferred.promise;
     };
 
+    var getFavoritesOffline = function() {
+        var deferred = $q.defer();
+
+        if (mallpoints['Favorites'].length > 0) {
+            var result = {};
+            result.data = mallpoints['Favorites'];
+            result.origin = 'Favorites';
+
+            deferred.resolve(result);
+        }
+        else {
+            IndexedDB.readAll('Favorites').then(function(favorites) {
+                if (favorites.length > 0) {
+                    var result = {};
+                    result.data = favorites;
+                    result.origin = 'Favorites';
+
+                    mallpoints['Favorites'] = favorites;
+
+                    console.log('Favorites data (from DB):', result.data.length);
+                    deferred.resolve(result);
+                }
+                else {
+                    deferred.reject(null);
+                }
+            })
+            .catch(function() {
+                deferred.reject(null);
+            });
+        }
+
+        return deferred.promise;
+    };
+
+    var getFavoritesFromServer = function() {
+        var deferred = $q.defer();
+
+        var postData = {};
+        postData.email = User.getData().email;
+
+        $http.post(ServerConfig.baseRoute() + "/favorites", postData)
+        .then(function(response) {
+            var result = {};
+            result.data = response.data;
+            result.origin = 'Favorites';
+
+            mallpoints['Favorites'] = result.data;
+
+            IndexedDB.deleteAll('Favorites').then(function() {
+                IndexedDB.addAll(result.data, 'Favorites');
+            });
+
+            console.log('Favorites data (from server):', result.data.length);
+            deferred.resolve(result);
+        })
+        .catch(function(error) {
+            deferred.reject(error);
+        });
+
+        return deferred.promise;
+    };
+
+    var getOwnedOffline = function() {
+        var deferred = $q.defer();
+
+        if (mallpoints['Owned'].length > 0) {
+            var result = {};
+            result.data = mallpoints['Owned'];
+            result.origin = 'Owned';
+
+            deferred.resolve(result);
+        }
+        else {
+            IndexedDB.readAll('Owned').then(function(owned) {
+                if (owned.length > 0) {
+                    var result = {};
+                    result.data = owned;
+                    result.origin = 'Owned';
+
+                    mallpoints['Owned'] = owned;
+
+                    console.log('Owned data (from DB):', result.data.length);
+                    deferred.resolve(result);
+                }
+                else {
+                    deferred.reject(null);
+                }
+            })
+            .catch(function() {
+                deferred.reject(null);
+            });
+        }
+
+        return deferred.promise;
+    };
+
+    var getOwnedFromServer = function() {
+        var deferred = $q.defer();
+
+        var postData = {};
+        postData.userId = User.getData()._id;
+
+        $http.post(ServerConfig.baseRoute() + "/mallpoints/user", postData)
+        .then(function(response) {
+            var result = {};
+            result.data = response.data;
+            result.origin = 'Owned';
+
+            mallpoints['Owned'] = result.data;
+
+            IndexedDB.deleteAll('Owned').then(function() {
+                IndexedDB.addAll(result.data, 'Owned');
+            });
+
+            console.log('Owned data (from server):', result.data.length);
+            deferred.resolve(result);
+        })
+        .catch(function(error) {
+            deferred.reject(error);
+        });
+
+        return deferred.promise;
+    };
+
     return {
-        // getAll: function(refresh) {
-        //     var deferred = $q.defer();
-        //
-        //     if ((refresh !== undefined && refresh === true) || mallpoints.length === 0) {
-        //         $http.get(ServerConfig.baseRoute() + "/mallpoints")
-        //         .then(function(results) {
-        //             mallpoints = results.data;
-        //
-        //             IndexedDB.deleteAll().then(function() {
-        //                 IndexedDB.addBatch(mallpoints).then(function() {
-        //                     console.log("Saved successfully to indexedDB");
-        //                 });
-        //             });
-        //
-        //             deferred.resolve(mallpoints);
-        //         })
-        //         .catch(function(error) {
-        //             deferred.reject(error);
-        //         });
-        //     }
-        //     else {
-        //         deferred.resolve(mallpoints);
-        //     }
-        //
-        //     return deferred.promise;
-        // },
-        radiusSearch: function(latLng, userId) {
+        get: function(origin) {
+            return mallpoints[origin];
+        },
+        getUserFavorites: function(refresh) {
+            var deferred = $q.defer();
+            var promise = deferred.promise;
+
+            if (refresh === undefined || refresh === false) {
+                getFavoritesOffline()
+                .then(function(favorites) {
+                    deferred.resolve(favorites);
+                })
+                .catch(function() {
+                    promise = getFavoritesFromServer();
+                });
+            }
+            else {
+                promise = getFavoritesFromServer();
+            }
+
+            return promise;
+        },
+        getAllOwnedByUser: function(refresh) {
+            var deferred = $q.defer();
+            var promise = deferred.promise;
+
+            if (refresh === undefined || refresh === false) {
+                getOwnedOffline()
+                .then(function(favorites) {
+                    deferred.resolve(favorites);
+                })
+                .catch(function() {
+                    promise = getOwnedFromServer();
+                });
+            }
+            else {
+                promise = getOwnedFromServer();
+            }
+
+            return promise;
+        },
+        getAllInUserRadius: function() {
             var deferred = $q.defer();
 
-            var params = { lat: latLng.lat, lng: latLng.lng, userId: userId };
-            $http.post(ServerConfig.baseRoute() + "/mallpoints/radius", params)
-            .then(function(results) {
-                var mallpoints = {};
-                mallpoints.data = results.data;
-                mallpoints.type = 'Radius';
+            var postData = {};
+            postData.lat = User.getLatLng().lat;
+            postData.lng = User.getLatLng().lng;
+            postData.userId = User.getData()._id;
 
-                deferred.resolve(mallpoints);
+            $http.post(ServerConfig.baseRoute() + "/mallpoints/radius", postData)
+            .then(function(response) {
+                var result = {};
+                result.data = response.data;
+                result.origin = 'Radius';
+
+                mallpoints['Radius'] = result.data;
+
+                console.log('Radius data:', result.data.length);
+                deferred.resolve(result);
             })
             .catch(function(error) {
                 deferred.reject(error);
             });
-
-            // if ((refresh !== undefined && refresh === true) || mallpoints.length === 0) {
-            //     var params = { lat: latLng.lat, lng: latLng.lng };
-            //     $http.post(ServerConfig.baseRoute() + "/mallpoints/radius", params)
-            //     .then(function(results) {
-            //         mallpoints = results.data;
-            //
-            //         IndexedDB.deleteAll().then(function() {
-            //             IndexedDB.addBatch(mallpoints).then(function() {
-            //             });
-            //         });
-            //
-            //         deferred.resolve(mallpoints);
-            //     })
-            //     .catch(function(error) {
-            //         deferred.reject(error);
-            //     });
-            // }
-            // else {
-            //     deferred.resolve(mallpoints);
-            // }
-
-            return deferred.promise;
-        },
-        getAllFromUser: function(user) {
-            var deferred = $q.defer();
-
-            $http.post(ServerConfig.baseRoute() + "/mallpoints/user", user)
-            .then(function(result) {
-                var mallpoints = {};
-                mallpoints.data = result.data;
-                mallpoints.type = 'Owned';
-
-                deferred.resolve(mallpoints);
-            })
-            .catch(function(error) {
-                deferred.eject(error);
-            });
-
-            return deferred.promise;
-        },
-        getAllOffline: function(refresh) {
-            var deferred = $q.defer();
-
-            if ((refresh !== undefined && refresh === true) || mallpoints.length === 0) {
-                IndexedDB.readAll()
-                .then(function(result) {
-                    mallpoints = result;
-
-                    deferred.resolve(mallpoints);
-                })
-                .catch(function(error) {
-                    deferred.reject(error);
-                });
-            }
-            else {
-                deferred.resolve(mallpoints);
-            }
 
             return deferred.promise;
         },
@@ -717,20 +855,6 @@ angular.module('mallpoint.services', [])
 
             return deferred.promise;
         },
-        tagSearchOffline: function($scope) {
-            var deferred = $q.defer();
-
-            showSearchPopup($scope)
-            .then(function(filter) {
-                var filteredPoints = tagSearchOfflinePriv(filter);
-                deferred.resolve(filteredPoints);
-            })
-            .catch(function(error) {
-                deferred.reject(error);
-            });
-
-            return deferred.promise;
-        },
         create: function($scope, latLng) {
             var deferred = $q.defer();
 
@@ -738,10 +862,12 @@ angular.module('mallpoint.services', [])
             .then(function(mallpoint) {
                 mallpoint.latitude = latLng.lat;
                 mallpoint.longitude = latLng.lng;
-                mallpoint.userId = Authentication.getUser()._id;
+                mallpoint.userId = User.getData()._id;
 
                 $http.post(ServerConfig.baseRoute() + "/mallpoints/create", mallpoint)
                 .then(function(result) {
+                    mallpoints['Owned'].push(result.data);
+                    IndexedDB.add(result.data, 'Owned');
                     deferred.resolve(result.data);
                 })
                 .catch(function(error) {
@@ -753,22 +879,62 @@ angular.module('mallpoint.services', [])
             });
 
             return deferred.promise;
+        },
+        addToFavorites: function(mallpoint) {
+            var deferred = $q.defer();
+
+            var data = {};
+            data.email = User.getData().email;
+            data.mallpointId = mallpoint._id;
+
+            $http.post(ServerConfig.baseRoute() + "/favorites/add", data)
+            .then(function(result) {
+                IndexedDB.add(mallpoint, 'Favorites');
+                deferred.resolve(result.data);
+            })
+            .catch(function(error) {
+                deferred.reject(error);
+            });
+
+            return deferred.promise;
+        },
+        removeFromFavorites: function(mallpoint) {
+            var deferred = $q.defer();
+
+            var data = {};
+            data.email = User.getData().email;
+            data.mallpointId = mallpoint._id;
+
+            $http.post(ServerConfig.baseRoute() + "/favorites/remove", data)
+            .then(function(result) {
+                IndexedDB.delete(mallpoint._id, 'Favorites');
+                deferred.resolve(result.data);
+            })
+            .catch(function(error) {
+                deferred.reject(error);
+            });
+
+            return deferred.promise;
         }
     }
 })
 
-.factory('Map', function($timeout) {
+.factory('Map', function($timeout, User, Mallpoints) {
     var map = null;
     var mapLayer = null;
     var userMarker = null;
+    var highlightedMarker = null;
 
-    var markers = {};
-    markers['Owned'] = [];
-    markers['Radius'] = [];
-    markers['Favorites'] = [];
+    var markerCallback = null;
+
+    var markers = [];
+
+    var priorities = {};
+    priorities['Radius'] = 0;
+    priorities['Owned'] = 1;
+    priorities['Favorites'] = 2;
 
     var iconCache = {};
-    var highlightedMarker = null;
 
     var createCanvasIcon = function(params) {
         var canvas, context;
@@ -829,13 +995,13 @@ angular.module('mallpoint.services', [])
     var initIconCache = function() {
         iconCache.shopOwned = new L.Icon(createCanvasIcon({}));
         iconCache.shopRadius = new L.Icon(createCanvasIcon({ outlineColor: 'black'}));
-        iconCache.shopFavorite = new L.Icon(createCanvasIcon({ outlineColor: '#ffc900'}));
-        iconCache.shopHighlighted = new L.Icon(createCanvasIcon({ outlineColor: '#0000FF'}));
+        iconCache.shopFavorites = new L.Icon(createCanvasIcon({ outlineColor: '#ffc900'}));
+        iconCache.shopHighlighted = new L.Icon(createCanvasIcon({ outlineColor: '#886aea'}));
 
         iconCache.mallOwned = new L.Icon(createCanvasIcon({ width: 50, height: 50, color: '#CC3300', outlineColor: 'white' }));
         iconCache.mallRadius = new L.Icon(createCanvasIcon({ width: 50, height: 50, color: 'black', outlineColor: 'white' }));
-        iconCache.mallFavorite = new L.Icon(createCanvasIcon({ width: 50, height: 50, color: '#ffc900', outlineColor: 'white' }));
-        iconCache.mallHighlighted = new L.Icon(createCanvasIcon({ width: 50, height: 50, color: '#0000FF', outlineColor: 'white' }));
+        iconCache.mallFavorites = new L.Icon(createCanvasIcon({ width: 50, height: 50, color: '#ffc900', outlineColor: 'white' }));
+        iconCache.mallHighlighted = new L.Icon(createCanvasIcon({ width: 50, height: 50, color: '#886aea', outlineColor: 'white' }));
     };
 
     var highlightMarkersPriv = function(markers, mallpoints) {
@@ -850,19 +1016,74 @@ angular.module('mallpoint.services', [])
         }
     };
 
-    var clearHighlightsPriv = function(markers) {
-        for (var i = 0; i < markers.length; i++)
-            markers[i].view.setOpacity(1.0);
+    var updateFavoriteStatus = function(marker) {
+        return function() {
+            var operation = '';
+            if (marker.origin !== 'Favorites') {
+                marker.view.setIcon(iconCache[marker.model.size.toLowerCase() + 'Favorites']);
+                marker.origin = 'Favorites';
+                Mallpoints.addToFavorites(marker.model);
+                operation = 'add';
+            }
+            else {
+                var userIdStr = User.getData()._id.toString();
+                if (marker.model.owner.toString() === userIdStr) {
+                    marker.view.setIcon(iconCache[marker.model.size.toLowerCase() + 'Owned']);
+                    marker.origin = 'Owned';
+                }
+                else {
+                    marker.view.setIcon(iconCache[marker.model.size.toLowerCase() + 'Radius']);
+                    marker.origin = 'Radius';
+                }
+
+                Mallpoints.removeFromFavorites(marker.model);
+                operation = 'remove';
+            }
+
+            if (markerCallback)
+                markerCallback(operation, marker.model);
+        }
     };
 
-    var onClickClosure = function(marker, type) {
-        return function() {
-            if (!marker.isFavorite)
-                marker.view.setIcon(iconCache[marker.model.size.toLowerCase() + 'Favorite']);
-            else
-                marker.view.setIcon(iconCache[marker.model.size.toLowerCase() + type]);
+    var markerIndexOf = function(mallpoint) {
+        for (var i = 0, len = markers.length; i < len; i++) {
+            if (mallpoint._id.toString() === markers[i].model._id.toString())
+                return i;
+        }
 
-            marker.isFavorite = !marker.isFavorite;
+        return -1;
+    };
+
+    var processMallpoints = function(mallpoints, origin) {
+        for (var i = 0; i < markers.length; i++) {
+            if (markers[i].origin === origin) {
+                map.removeLayer(markers[i].view);
+                markers.splice(i, 1);
+                i--;
+            }
+        }
+
+        for (var i = 0, len = mallpoints.length; i < len; i++) {
+            var index = markerIndexOf(mallpoints[i]);
+            if (index !== -1) {
+                if (priorities[origin] > priorities[markers[index].origin]) {
+                    markers[index].origin = origin;
+                    markers[index].view.setIcon(iconCache[mallpoints[i].size.toLowerCase() + origin]);
+                    markers[index].model = mallpoints[i];
+                }
+            }
+            else {
+                var newMarker = {};
+                newMarker.model = mallpoints[i];
+                newMarker.origin = origin;
+                newMarker.view = new L.marker([mallpoints[i].latitude, mallpoints[i].longitude], {
+                    bounceOnAdd: true,
+                    icon: iconCache[mallpoints[i].size.toLowerCase() + origin]
+                }).addTo(map).bindPopup(mallpoints[i].name);
+                newMarker.view.on('contextmenu', updateFavoriteStatus(newMarker));
+
+                markers.push(newMarker);
+            }
         }
     };
 
@@ -891,67 +1112,47 @@ angular.module('mallpoint.services', [])
             return map;
         },
         displayMallpoints: function(mallpoints) {
-            var shopIcon = iconCache['shop' + mallpoints.type];
-            var mallIcon = iconCache['mall' + mallpoints.type];
-
-            for (var i = 0; i < markers[mallpoints.type].length; i++) {
-                map.removeLayer(markers[mallpoints.type][i].view);
-            }
-
-            markers[mallpoints.type] = [];
-
-            for (var i = 0; i < mallpoints.data.length; i++) {
-                var marker = {};
-                marker.model = mallpoints.data[i];
-                marker.isFavorite = false;
-                marker.view = new L.marker([mallpoints.data[i].latitude, mallpoints.data[i].longitude], {
-                    bounceOnAdd: true,
-                    icon: mallpoints.data[i].size === 'Shop' ? shopIcon : mallIcon
-                }).addTo(map).bindPopup(mallpoints.data[i].name);
-                marker.view.on('click', onClickClosure(marker, mallpoints.type));
-
-                markers[mallpoints.type].push(marker);
-            }
+            processMallpoints(mallpoints.data, mallpoints.origin);
         },
-        addMallpoint: function(mallpoint) {
-            var marker = {};
-            marker.model = mallpoint;
-            marker.view = new L.marker([mallpoint.latitude, mallpoint.longitude], {
+        addMarker: function(mallpoint) {
+            var newMarker = {};
+            newMarker.model = mallpoint;
+            newMarker.origin = 'Owned';
+            newMarker.view = new L.marker([mallpoint.latitude, mallpoint.longitude], {
                 bounceOnAdd: true,
-                icon: iconCache[mallpoint.size.toLowerCase()]
+                icon: iconCache[mallpoint.size.toLowerCase() + 'Owned']
             }).addTo(map).bindPopup(mallpoint.name);
+            newMarker.view.on('contextmenu', updateFavoriteStatus(newMarker));
 
-            markers.push(marker);
+            markers.push(newMarker);
         },
-        highlightMallpoints: function(mallpoints) {
-            highlightMarkersPriv(markers['Owned'], mallpoints);
-            highlightMarkersPriv(markers['Radius'], mallpoints);
-            highlightMarkersPriv(markers['Favorites'], mallpoints);
+        highlightSearchResults: function(mallpoints) {
+            console.log('highlightSearchResults not implemented!');
         },
         highlight: function(mallpoint) {
-            if (highlightedMarker)
-                highlightedMarker.view.setIcon(iconCache[highlightedMarker.model.size.toLowerCase()]);
+             if (highlightedMarker)
+                 highlightedMarker.view.setIcon(iconCache[highlightedMarker.model.size.toLowerCase()
+                      + highlightedMarker.origin]);
 
-            for (var i = 0; i < markers.length; i++) {
-                if (markers[i].model._id === mallpoint._id) {
-                    markers[i].view.setIcon(iconCache[markers[i].model.size.toLowerCase() + "Highlighted"]);
-                    map.setView([markers[i].model.latitude, markers[i].model.longitude]);
-                    highlightedMarker = markers[i];
-
-                    break;
-                }
-            }
+             for (var i = 0; i < markers.length; i++) {
+                 if (markers[i].model._id.toString() === mallpoint._id.toString()) {
+                     markers[i].view.setIcon(iconCache[markers[i].model.size.toLowerCase() + "Highlighted"]);
+                     map.setView([markers[i].model.latitude, markers[i].model.longitude]);
+                     highlightedMarker = markers[i];
+                     break;
+                 }
+             }
         },
         onLongClick: function(callback) {
             map.on('contextmenu', function(event) {
                 callback(event);
             });
         },
-        getMarkerIcon: function(type) {
-            return iconCache[type];
+        onMarkerClick: function(markerCb) {
+            markerCallback = markerCb;
         },
         createUserMarker: function() {
-            userMarker = new L.marker([0, 0]).addTo(map).bindPopup('My Location!');
+            userMarker = new L.marker([0, 0], {draggable: 'true'}).addTo(map).bindPopup('My Location!');
             userMarker.setZIndexOffset(999);
 
             return userMarker;
@@ -962,9 +1163,11 @@ angular.module('mallpoint.services', [])
             return userCircle;
         },
         clearHighlights: function() {
-            clearHighlightsPriv(markers['Owned']);
-            clearHighlightsPriv(markers['Radius']);
-            clearHighlightsPriv(markers['Favorites']);
+            console.log(markers.length);
+            for (var i = 0; i < markers.length; i++) {
+                markers[i].view.setIcon(iconCache[markers[i].model.size.toLowerCase() + markers[i].origin]);
+                markers[i].view.setOpacity(1.0);
+            }
         }
     }
 })

@@ -1,5 +1,9 @@
 <ion-view title="Settings">
     <ion-content>
         <ion-toggle ng-disabled="goOnline.disabled" ng-model="goOnline.checked" toggle-class="toggle-assertive" ng-change="goOnlineChange()">Display Search Radius</ion-toggle>
+        <label class="item item-input">
+            <span class="input-label">Number</span>
+            <input style="text-align: right;" type="number">
+        </label>
     </ion-content>
 </ion-view>
