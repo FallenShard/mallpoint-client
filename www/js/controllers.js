@@ -1,6 +1,6 @@
 angular.module('mallpoint.controllers', ['ionic'])
 
-.controller('LoginController', function($scope, $state, Authentication, WiFi) {
+.controller('LoginController', function($rootScope, $scope, $state, Authentication, WiFi) {
     var showMap = function() {
         $state.go('app.map');
     };
@@ -22,7 +22,12 @@ angular.module('mallpoint.controllers', ['ionic'])
             .login(this)
             .then(showMap)
             .catch(logError);
+            $rootScope.forceSync = true;
         };
+    };
+
+    $scope.serverConfig = function() {
+        WiFi.setServerIP($scope);
     };
 
     $scope.connection = {};
@@ -51,13 +56,14 @@ angular.module('mallpoint.controllers', ['ionic'])
     };
 })
 
-.controller('MapController', function($rootScope, $scope, $ionicModal, $ionicActionSheet, $ionicLoading,
+.controller('MapController', function($rootScope, $scope, $ionicModal, $ionicActionSheet, $ionicLoading, $interval,
                                       Map, Geofencing, Geolocation, Mallpoints, User) {
+    // This is for the side-menu title
+    $rootScope.username = User.getData().username;
+
     var logError = function(error) {
         console.error(error);
     };
-
-    $rootScope.username = User.getData().username;
 
     /*
     ////////////////////////////////////////
@@ -82,6 +88,7 @@ angular.module('mallpoint.controllers', ['ionic'])
     MY MALLPOINTS
     ////////////////////////////////////////
     */
+    $scope.myMallpointsModal = [];
     $ionicModal.fromTemplateUrl('templates/my-mallpoints.html', {
         scope: $scope,
         animation: 'slide-in-up'
@@ -95,7 +102,6 @@ angular.module('mallpoint.controllers', ['ionic'])
     ////////////////////////////////////////
     */
     $scope.favorites = [];
-
     $ionicModal.fromTemplateUrl('templates/favorites.html', {
         scope: $scope,
         animation: 'slide-in-up'
@@ -109,7 +115,6 @@ angular.module('mallpoint.controllers', ['ionic'])
     ////////////////////////////////////////
     */
     $scope.notifications = [];
-
     $ionicModal.fromTemplateUrl('templates/notifications.html', {
         scope: $scope,
         animation: 'slide-in-up'
@@ -118,13 +123,12 @@ angular.module('mallpoint.controllers', ['ionic'])
     });
 
     $scope.consumeNotification = function(mallpoint) {
-        $scope.notificationsModal.hide();
         var  index = $scope.notifications.indexOf(mallpoint);
         if (index !== -1) {
             $scope.notifications.splice(index, 1);
         }
 
-        Map.highlight(mallpoint);
+        this.showOnMap(mallpoint, $scope.notificationsModal);
     };
 
     $scope.dismissNotification = function(index) {
@@ -177,7 +181,7 @@ angular.module('mallpoint.controllers', ['ionic'])
             }
 
             case 'remove': {
-                for (var i = 0; i < $scope.favorites; i++) {
+                for (var i = 0; i < $scope.favorites.length; i++) {
                     if ($scope.favorites[i]._id.toString() === mallpoint._id.toString()) {
                         $scope.favorites.splice(i, 1);
                         return;
@@ -193,31 +197,32 @@ angular.module('mallpoint.controllers', ['ionic'])
     Map.onLongClick(longClickCallback);
     Map.onMarkerClick(markerClickCallback);
 
+    var tempLatLng = null;
+
+    $scope.userMarker.on('drag', function(evt) {
+        tempLatLng = $scope.userMarker.getLatLng();
+        console.log(tempLatLng);
+    });
+
+    $interval(function() {
+        if (tempLatLng !== null) {
+            var position = {};
+            position.coords = {};
+            position.coords.latitude = tempLatLng.lat;
+            position.coords.longitude = tempLatLng.lng;
+            updateUserPosition(position);
+        }
+    }, 5000);
+
     /*
     ////////////////////////////////////////
     MALLPOINTS
     ////////////////////////////////////////
     */
-    Mallpoints
-    .getUserFavorites()
-    .then(function(favorites) {
-        $scope.favorites = favorites.data;
-        Map.displayMallpoints(favorites);
-    })
-    .catch(logError);
-
-    Mallpoints
-    .getAllOwnedByUser()
-    .then(function(owned) {
-        $scope.myMallpoints = owned.data;
-        Map.displayMallpoints(owned);
-    })
-    .catch(logError);
-
     $scope.search = function() {
         Mallpoints
         .tagSearch(this)
-        .then(Map.highlightMallpoints)
+        .then(Map.highlightSearchResults)
         .catch(logError);
     };
 
@@ -254,6 +259,28 @@ angular.module('mallpoint.controllers', ['ionic'])
         .catch(logError);
     };
 
+    Mallpoints
+    .getUserFavorites($rootScope.forceSync)
+    .then(function(favorites) {
+        $scope.favorites = favorites.data;
+
+        return favorites;
+    })
+    .then(Map.displayMallpoints)
+    .catch(logError);
+
+    Mallpoints
+    .getAllOwnedByUser($rootScope.forceSync)
+    .then(function(mallpoints) {
+        $scope.myMallpoints = mallpoints.data;
+
+        return mallpoints;
+    })
+    .then(Map.displayMallpoints)
+    .catch(logError);
+
+    $rootScope.forceSync = false;
+
     /*
     ////////////////////////////////////////
     GEOFENCING
@@ -278,8 +305,6 @@ angular.module('mallpoint.controllers', ['ionic'])
     .then(updateUserPosition)
     .catch(logError);
 
-    $scope.notifButton = document.getElementById("notif-button");
-
     var onNewNotifications = function(mallpoints) {
         $scope.notifications = $scope.notifications.concat(mallpoints);
         $scope.$digest();
@@ -290,16 +315,24 @@ angular.module('mallpoint.controllers', ['ionic'])
     Geofencing.start(5000);
 })
 
-.controller('LogoutController', function($ionicHistory, $state, $rootScope, LocalStorage) {
-    LocalStorage.clear();
-    $ionicHistory.clearCache();
-    $ionicHistory.clearHistory();
-    console.log("storage cleared!");
-    $state.go('login');
+.controller('LogoutController', function($ionicHistory, $state, $scope, $window, LocalStorage, Geofencing) {
+    $scope.$on( "$ionicView.enter", function(scopes, states) {
+        LocalStorage.clear();
+        Geofencing.stop();
+        $window.location.reload(true);
+        $state.go('login');
+    });
 })
 
-.controller('SettingsController', function($rootScope, $scope) {
-    $scope.goOnline = { checked: true, disabled: true };
+.controller('SettingsController', function($scope, Geofencing, Map, User) {
+    $scope.searchCircle = { visible: true, radius: 300 };
+
+    $scope.$on("$ionicView.leave", function() {
+        User.setRadius($scope.searchCircle.radius);
+        Map.setCircleRadius($scope.searchCircle.radius);
+        Map.showCircle($scope.searchCircle.visible);
+        Geofencing.setRadius($scope.searchCircle.radius);
+    })
 })
 
 ;

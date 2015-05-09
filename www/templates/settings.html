@@ -1,9 +1,15 @@
 <ion-view title="Settings">
     <ion-content>
-        <ion-toggle ng-disabled="goOnline.disabled" ng-model="goOnline.checked" toggle-class="toggle-assertive" ng-change="goOnlineChange()">Display Search Radius</ion-toggle>
-        <label class="item item-input">
-            <span class="input-label">Number</span>
-            <input style="text-align: right;" type="number">
-        </label>
+        <div class="list">
+            <ion-toggle ng-model="searchCircle.visible" toggle-class="toggle-assertive" ng-change="searchCircleChanged()">Show Search Circle</ion-toggle>
+            <div class="item item-divider">
+                Search Radius ({{ searchCircle.radius }})
+            </div>
+            <div class="item range range-assertive">
+                50m <input type="range" name="volume" min="50" max="2000" value="300" ng-model="searchCircle.radius"> 2000m
+            </div>
+        </div>
+
+
     </ion-content>
 </ion-view>

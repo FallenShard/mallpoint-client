@@ -1,7 +1,7 @@
-angular.module('mallpoint.constants', [])
+angular.module('mallpoint.values', [])
 
 // Server configuration
-.constant('ServerConfig', {
+.value('ServerConfig', {
     ip: '192.168.0.12',
     port: '5000',
     baseUrl: '/api',
@@ -10,7 +10,7 @@ angular.module('mallpoint.constants', [])
     }
 })
 
-.constant('WebSocketConfig', {
+.value('WebSocketConfig', {
     ip: '192.168.0.12',
     port: '5001',
     baseUrl: '',
@@ -19,7 +19,7 @@ angular.module('mallpoint.constants', [])
     }
 })
 
-.constant('IDBStores', {
+.value('IDBStores', {
     Favorites: 'favorites',
     Owned: 'mallpoints'
 });

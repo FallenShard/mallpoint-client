@@ -1,13 +1,14 @@
 angular.module('mallpoint.services', [])
 
 .factory('Geolocation', function($q) {
+
+    var defaultParams = { enableHighAccuracy: true, maximumAge: 3000 };
+
     return {
         getCurrentPosition: function(params) {
             var deferred = $q.defer();
 
-            params = params || {};
-            params.enableHighAccuracy = params.enableHighAccuracy || true;
-            params.maximumAge = params.maximumAge || 3000;
+            params = angular.extend({}, defaultParams, params);
             navigator.geolocation.getCurrentPosition(
                 function(result) {
                     deferred.resolve(result);
@@ -22,9 +23,7 @@ angular.module('mallpoint.services', [])
         watchPosition: function(params) {
             var deferred = $q.defer();
 
-            params = params || {};
-            params.enableHighAccuracy = params.enableHighAccuracy || true;
-            params.maximumAge = params.maximumAge || 3000;
+            params = angular.extend({}, defaultParams, params);
             navigator.geolocation.watchPosition(
                 function(result) {
                     deferred.resolve(result);
@@ -59,7 +58,7 @@ angular.module('mallpoint.services', [])
     };
 })
 
-.factory('WiFi', function($ionicPlatform, $ionicPopup, $q) {
+.factory('WiFi', function($ionicPlatform, $ionicPopup, $q, ServerConfig, WebSocketConfig) {
     var checkConnection = function() {
         if (!navigator.connection)
             return true;
@@ -85,6 +84,38 @@ angular.module('mallpoint.services', [])
         });
     };
 
+    var showConfigPopup = function($scope) {
+        $scope.config = {};
+        var configPopup = $ionicPopup.show({
+            template: '<input type="text" ng-model="config.address">',
+            title: 'Enter Server IP',
+            subTitle: 'Please use xxx.xxx.xxx.xxx notation',
+            scope: $scope,
+            buttons: [
+                {
+                    text: 'Cancel',
+                    type: 'button-assertive button-clear',
+                    onTap: function(e) {
+                        return '192.168.0.12';
+                    }
+                },
+                {
+                    text: 'Save',
+                    type: 'button-assertive',
+                    onTap: function(e) {
+                        if (!$scope.config.address) {
+                            e.preventDefault();
+                        } else {
+                            return $scope.config.address;
+                        }
+                    }
+                }
+            ]
+        });
+
+        return configPopup;
+    };
+
     return {
         isActive: function($scope) {
             var deferred = $q.defer();
@@ -102,6 +133,15 @@ angular.module('mallpoint.services', [])
             });
 
             return deferred.promise;
+        },
+        setServerIP: function($scope) {
+            var configPopup = showConfigPopup($scope);
+
+            configPopup.then(function(res) {
+                console.log('New server address: ', res);
+                ServerConfig.ip = res;
+                WebSocketConfig.ip = res;
+            });
         }
     };
 })
@@ -264,9 +304,8 @@ angular.module('mallpoint.services', [])
             openPriv().then(function(db) {
                 var transaction = db.transaction([IDBStores[origin]], "readwrite");
                 var store = transaction.objectStore(IDBStores[origin]);
-                var result = [];
-
                 var cursor = store.openCursor();
+
                 cursor.onsuccess = function(evt) {
                     var delCursor = evt.target.result;
                     if (delCursor) {
@@ -279,7 +318,7 @@ angular.module('mallpoint.services', [])
                 }
 
                 transaction.oncomplete = function(event) {
-                    deferred.resolve(result);
+                    deferred.resolve("Success");
                 }
             });
 
@@ -291,13 +330,8 @@ angular.module('mallpoint.services', [])
             openPriv().then(function(db) {
                 var transaction = db.transaction([IDBStores[origin]], "readwrite");
                 var store = transaction.objectStore(IDBStores[origin]);
-
                 var request = store.delete(objectId);
-                var cursor = store.openCursor();
-                request.onsuccess = function(evt) {
-                    deferred.resolve("Success");
-                }
-                cursor.onerror = function(error) {
+                request.onerror = function(error) {
                     deferred.reject(error);
                 }
 
@@ -314,6 +348,7 @@ angular.module('mallpoint.services', [])
 .factory('User', function() {
     var user = null;
     var latLng = null;
+    var radius = 0.3;
 
     return {
         setData: function(activeUser) {
@@ -327,6 +362,12 @@ angular.module('mallpoint.services', [])
         },
         getLatLng: function() {
             return latLng;
+        },
+        setRadius: function(radMeters) {
+            radius = radMeters / 1000.0;
+        },
+        getRadius: function() {
+            return radius;
         }
     };
 })
@@ -378,7 +419,6 @@ angular.module('mallpoint.services', [])
                     showErrorPoup('Invalid Credentials',
                                   'Invalid email and/or password provided. Please try again.',
                                   $scope);
-
                     deferred.reject("Invalid credentials in storage.");
                 }
             });
@@ -408,7 +448,6 @@ angular.module('mallpoint.services', [])
                         showErrorPoup('Invalid Credentials',
                                       'Invalid email and/or password provided. Please try again.',
                                       $scope);
-
                         deferred.reject("Invalid credentials in storage.");
                     }
                 });
@@ -452,12 +491,17 @@ angular.module('mallpoint.services', [])
     var webSocket = null;
     var connectionToken = -1;
     var intervalPromise = null;
+    var recAttempt = 1;
 
     var dataCallback = null;
 
+    var radius = 0.3;
+
     var initPriv = function() {
-        if (webSocket)
+        if (webSocket) {
             webSocket.close();
+            webSocket = null;
+        }
 
         webSocket = new WebSocket(WebSocketConfig.baseRoute());
 
@@ -479,6 +523,7 @@ angular.module('mallpoint.services', [])
         webSocket.onclose = function(event) {
             console.log("Lost connection to the server");
             webSocket = null;
+            reconnect();
         };
 
         webSocket.onerror = function(event) {
@@ -489,8 +534,17 @@ angular.module('mallpoint.services', [])
     };
 
     var reconnect = function() {
-        $timeout(function() {
-            initPriv();
+        var recPromise = $interval(function() {
+            console.log("Reconnection attempt: " + recAttempt + "/3");
+
+            if (webSocket === null)
+                initPriv();
+
+            recAttempt++;
+
+            if (recAttempt > 3 || webSocket) {
+                $interval.cancel(recPromise);
+            }
         }, 3000);
     }
 
@@ -522,9 +576,9 @@ angular.module('mallpoint.services', [])
                     var message = {};
                     message.type = 'data';
                     message.token = connectionToken;
-                    message.radius = 0.3;
+                    message.radius = radius;
                     message.coords = User.getLatLng();
-                    if (webSocket)
+                    if (webSocket && webSocket.readyState === WebSocket.OPEN)
                         webSocket.send(JSON.stringify(message));
                     else
                         $interval.cancel(intervalPromise);
@@ -533,6 +587,9 @@ angular.module('mallpoint.services', [])
         },
         stop: function() {
             $interval.cancel(intervalPromise);
+        },
+        setRadius: function(rad) {
+            radius = rad / 1000.0;
         }
     }
 })
@@ -817,6 +874,7 @@ angular.module('mallpoint.services', [])
             var postData = {};
             postData.lat = User.getLatLng().lat;
             postData.lng = User.getLatLng().lng;
+            postData.radius = User.getRadius();
             postData.userId = User.getData()._id;
 
             $http.post(ServerConfig.baseRoute() + "/mallpoints/radius", postData)
@@ -919,10 +977,12 @@ angular.module('mallpoint.services', [])
     }
 })
 
-.factory('Map', function($timeout, User, Mallpoints) {
+.factory('Map', function($timeout, $interval, User, Mallpoints) {
     var map = null;
     var mapLayer = null;
     var userMarker = null;
+    var userCircle = null;
+    var userRadius = 300;
     var highlightedMarker = null;
 
     var markerCallback = null;
@@ -1073,18 +1133,41 @@ angular.module('mallpoint.services', [])
                 }
             }
             else {
-                var newMarker = {};
-                newMarker.model = mallpoints[i];
-                newMarker.origin = origin;
-                newMarker.view = new L.marker([mallpoints[i].latitude, mallpoints[i].longitude], {
-                    bounceOnAdd: true,
-                    icon: iconCache[mallpoints[i].size.toLowerCase() + origin]
-                }).addTo(map).bindPopup(mallpoints[i].name);
-                newMarker.view.on('contextmenu', updateFavoriteStatus(newMarker));
-
-                markers.push(newMarker);
+                addMarkerPriv(mallpoints[i], origin);
             }
         }
+    };
+
+    var addMarkerPriv = function(mallpoint, origin) {
+        var newMarker = {};
+        newMarker.model = mallpoint;
+        newMarker.origin = origin;
+        newMarker.view = new L.marker([mallpoint.latitude, mallpoint.longitude], {
+            opacity: 0.0,
+            icon: iconCache[mallpoint.size.toLowerCase() + origin]
+        }).addTo(map).bindPopup(mallpoint.name);
+        newMarker.view.on('contextmenu', updateFavoriteStatus(newMarker));
+
+        animateMarker(function(progress) {
+            newMarker.view.setOpacity(progress);
+        }, 33, 30);
+
+        markers.push(newMarker);
+    };
+
+    var animateMarker = function(callback, delay, repetitions) {
+        var reps = 0;
+        var progress = 0;
+        var step = 1.0 / repetitions;
+        var animPromise = $interval(function () {
+
+            callback(progress);
+
+            progress += step;
+            if (++reps === repetitions) {
+                $interval.cancel(animPromise);
+            }
+        }, delay);
     };
 
     return {
@@ -1115,19 +1198,20 @@ angular.module('mallpoint.services', [])
             processMallpoints(mallpoints.data, mallpoints.origin);
         },
         addMarker: function(mallpoint) {
-            var newMarker = {};
-            newMarker.model = mallpoint;
-            newMarker.origin = 'Owned';
-            newMarker.view = new L.marker([mallpoint.latitude, mallpoint.longitude], {
-                bounceOnAdd: true,
-                icon: iconCache[mallpoint.size.toLowerCase() + 'Owned']
-            }).addTo(map).bindPopup(mallpoint.name);
-            newMarker.view.on('contextmenu', updateFavoriteStatus(newMarker));
-
-            markers.push(newMarker);
+            addMarkerPriv(mallpoint, 'Owned');
         },
         highlightSearchResults: function(mallpoints) {
-            console.log('highlightSearchResults not implemented!');
+            for (var j = 0, markLen = markers.length; j < markLen; j++) {
+                    markers[j].view.setOpacity(0.2);
+            }
+
+            for (var i = 0, len = mallpoints.length; i < len; i++) {
+                for (var j = 0, markLen = markers.length; j < markLen; j++) {
+                    if (markers[j].model._id.toString() === mallpoints[i]._id.toString()) {
+                        markers[j].view.setOpacity(1.0);
+                    }
+                }
+            }
         },
         highlight: function(mallpoint) {
              if (highlightedMarker)
@@ -1162,8 +1246,22 @@ angular.module('mallpoint.services', [])
 
             return userCircle;
         },
+        setCircleRadius: function(radius) {
+            userRadius = radius;
+            userCircle.setRadius(radius);
+            Mallpoints
+            .getAllInUserRadius()
+            .then(this.displayMallpoints);
+        },
+        showCircle: function(visible) {
+            if (visible) {
+                userCircle.setRadius(userRadius);
+            }
+            else {
+                userCircle.setRadius(0);
+            }
+        },
         clearHighlights: function() {
-            console.log(markers.length);
             for (var i = 0; i < markers.length; i++) {
                 markers[i].view.setIcon(iconCache[markers[i].model.size.toLowerCase() + markers[i].origin]);
                 markers[i].view.setOpacity(1.0);
